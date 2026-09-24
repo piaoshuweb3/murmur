@@ -756,6 +756,15 @@ body.lineage-open .panel-pop { opacity: 0.1; pointer-events: none; }
 }
 .tca-addr:hover { background: rgba(var(--accent-rgb), 0.16); opacity: 1; }
 .tca-addr.copied { color: var(--accent); opacity: 1; }
+/* add-to-wallet (EIP-747): a quiet parchment pill next to the CA copy — same family as .tca-addr */
+.tca-add {
+  flex: none; font-size: 9.5px; letter-spacing: 0.04em; text-transform: lowercase;
+  background: none; border: 1px solid rgba(var(--accent-rgb), 0.38); cursor: pointer;
+  color: var(--ink); opacity: 0.85; padding: 1px 7px; border-radius: 3px;
+  transition: background 0.25s ease, opacity 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+}
+.tca-add:hover { background: rgba(var(--accent-rgb), 0.16); opacity: 1; border-color: rgba(var(--accent-rgb), 0.6); }
+.tca-add.is-busy { opacity: 1; color: var(--accent); border-color: rgba(var(--accent-rgb), 0.6); }
 .tca-ex {
   margin-left: auto; flex: none;
   color: var(--muted); text-decoration: none; font-size: 12px;

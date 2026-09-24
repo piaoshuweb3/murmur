@@ -163,7 +163,7 @@
         <tbody>
           <tr>
             <td class="tp-name">MurmurToken<small>ERC-20 · 1,000,000,000 fixed</small></td>
-            <td class="tp-addr"><span class="tp-row-btns">0x43D8…B490<button class="copy-btn" type="button" data-copy="0x43D84EfE7174637cdA55Ae1560cd4BFf4BaAB490">copy</button></span></td>
+            <td class="tp-addr"><span class="tp-row-btns">0x43D8…B490<button class="copy-btn" type="button" data-copy="0x43D84EfE7174637cdA55Ae1560cd4BFf4BaAB490">copy</button><button class="copy-btn tw-add" type="button" id="tp-add-wallet">add to wallet / 添加到钱包</button></span></td>
             <td><a class="tp-ex" href="https://explorer.arc.io/address/0x43D84EfE7174637cdA55Ae1560cd4BFf4BaAB490" target="_blank" rel="noopener noreferrer">↗</a></td>
           </tr>
           <tr>
@@ -395,6 +395,41 @@
             document.body.removeChild(ta);
           } catch (_) { fail(); }
         }
+      });
+    })();
+  </script>
+  <script>
+    // ---- add MURMUR to the visitor's wallet (EIP-747 wallet_watchAsset) — self-contained, opt-in ----
+    (function () {
+      var btn = document.getElementById("tp-add-wallet");
+      if (!btn) return;
+      var CA = "0x43D84EfE7174637cdA55Ae1560cd4BFf4BaAB490";
+      var ARC = {
+        chainId: "0x13b2", chainName: "Arc",
+        nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
+        rpcUrls: ["https://rpc.mainnet.arc.io"], blockExplorerUrls: ["https://explorer.arc.io"]
+      };
+      var restore = btn.textContent;
+      function done(t) { btn.textContent = t; setTimeout(function () { btn.textContent = restore; }, 2400); }
+      btn.addEventListener("click", function () {
+        var eth = window.ethereum;
+        if (!eth || typeof eth.request !== "function") {
+          if (navigator.clipboard) navigator.clipboard.writeText(CA).then(function () { done("CA copied ✓"); }, function () { done("no wallet"); });
+          else done("no wallet");
+          return;
+        }
+        btn.textContent = "…";
+        eth.request({ method: "eth_chainId" }).then(function (cid) {
+          if (cid && String(cid).toLowerCase() !== ARC.chainId) {
+            return eth.request({ method: "wallet_addEthereumChain", params: [ARC] }).catch(function () {});
+          }
+        }).then(function () {
+          return eth.request({ method: "wallet_watchAsset", params: {
+            type: "ERC20",
+            options: { address: CA, symbol: "MURMUR", decimals: 18, image: "https://flyx402.xyz/token/murmur-logo-256.png" }
+          } });
+        }).then(function (ok) { done(ok ? "added ✓" : "—"); })
+          .catch(function (e) { done(e && e.code === 4001 ? "declined" : "not supported"); });
       });
     })();
   </script>

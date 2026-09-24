@@ -33,7 +33,7 @@
 // i18n kernel — pure read-out localisation layer (never touches sim/economy/proof).
 // NOTE: `t` is used all over this file as a local (time/totals/lerp), so we import the
 // translator under the alias `T` to avoid any shadowing. ct() = chronicle display, gl() = glossary.
-import { t as T, ct, gl, currentLang, getLang, setLang, applyDom, SUPPORTED, ENDONYMS } from "./i18n.js?v=69";
+import { t as T, ct, gl, currentLang, getLang, setLang, applyDom, SUPPORTED, ENDONYMS } from "./i18n.js?v=70";
 
 const params = new URLSearchParams(location.search);
 const API =
@@ -4045,30 +4045,58 @@ const CHRON_ICONS = {
   WAR_DECLARED: "⚔", WAR_RESOLVED: "⚑", TAX_LEVIED: "⛃", TERRITORY_SEIZED: "♜",
 };
 
-/** Page one older slice out of the D1 deep archive (older than the hot ring's oldest loaded row).
- *  Appends into chronExtra (survives polls), re-renders, and flips the button off when the D1
- *  archive reports nothing older. Read-only + best-effort: a failed page never breaks the drawer. */
+/** Page the deep archive until EVERY inscribed line is on screen (older than the hot ring's
+ *  oldest loaded row). Appends page by page into chronExtra (survives polls), re-renders after
+ *  each page so the list grows live instead of arriving in one jump, and flips the button off
+ *  when the D1 archive reports nothing older. Read-only + best-effort: a failed page never
+ *  breaks the drawer — it just leaves the pager visible so the reader can retry. */
 async function loadOlderChron() {
   if (chronOlderBusy || !chronRows.length) return;
   chronOlderBusy = true;
   const btn = $("chron-older");
   if (btn) { btn.classList.add("is-busy"); btn.setAttribute("aria-busy", "true"); }
   try {
-    const oldest = chronRows[chronRows.length - 1].seq || 0;
-    const r = await getJSON(`/annals/archive?before=${oldest}&limit=200`, 12000);
-    if (r && r.enabled && Array.isArray(r.entries) && r.entries.length) {
+    // 60 pages × 200 rows = 12 000 lines of headroom — far beyond any honest lifetime of the chronicle.
+    for (let page = 0; page < 60; page++) {
+      const oldest = chronRows[chronRows.length - 1].seq || 0;
+      const r = await getJSON(`/annals/archive?before=${oldest}&limit=200`, 12000);
+      if (!(r && r.enabled && Array.isArray(r.entries))) break;   // archive hiccup → stop; button stays for retry
+      if (typeof r.total === "number") chronTotal = r.total;
       const loaded = new Set(chronRows.map((e) => e.seq));
       const fresh = r.entries.filter((e) => e && !loaded.has(e.seq));
       if (fresh.length) {
         chronExtra = chronExtra.concat(fresh);
         chronRows = chronRows.concat(fresh).sort((a, b) => (b.seq || 0) - (a.seq || 0));
+        renderChron();   // progressive growth: the reader watches the history deepen
+        if (btn && btn.isConnected) {
+          btn.textContent = T("chron.loadAllBusy", { loaded: chronRows.length, total: Math.max(chronTotal, chronRows.length) });
+        }
       }
+      // end of the written history: the archive says nothing older exists (or the page came back empty)
+      if (!r.hasMore || !r.entries.length) break;
+      // hand a frame back to the UI between pages so the drawer never stutters
+      await new Promise((res) => setTimeout(res, 60));
     }
-    if (r && typeof r.total === "number") chronTotal = r.total;
-    renderChron();
   } catch { /* archive read is a nicety — the hot window stays intact */ }
   chronOlderBusy = false;
-  if (btn) { btn.classList.remove("is-busy"); btn.removeAttribute("aria-busy"); }
+  renderChron();                    // final pass: footer shows "all of total", the pager hides itself
+  if (btn) {
+    btn.classList.remove("is-busy"); btn.removeAttribute("aria-busy");
+    if (btn.isConnected && !btn.hidden) btn.textContent = T("chron.loadOlder");
+  }
+}
+
+/** The reader asked for the FULL chronicle: when the drawer opens and the deep archive holds more
+ *  than the hot ring served, walk the whole remaining history in the background (page by page,
+ *  progressively rendered) — no blind clicking through a pager. Once per page load; if the walk
+ *  is interrupted, the still-visible pager button retries it manually. */
+let chronAutoAllDone = false;
+function autoLoadAllChron() {
+  if (chronAutoAllDone || chronOlderBusy) return;
+  if (chronTotal > chronRows.length && chronRows.length > 0) {
+    chronAutoAllDone = true;
+    loadOlderChron();
+  }
 }
 
 /** Ask the deep archive how much history exists (one tiny COUNT + one row) the first time the
@@ -4080,7 +4108,10 @@ async function fetchChronTotal() {
   chronTotalAsked = true;
   try {
     const r = await getJSON("/annals/archive?limit=1", 12000);
-    if (r && typeof r.total === "number" && r.total > 0) { chronTotal = r.total; renderChron(); }
+    if (r && typeof r.total === "number" && r.total > 0) {
+      chronTotal = r.total; renderChron();
+      autoLoadAllChron();   // the archive holds more than the hot window → walk the whole deep history
+    }
     else chronTotalAsked = false;
   } catch { chronTotalAsked = false; }
 }
@@ -6217,6 +6248,56 @@ async function copyTokenCA(btn) {
   tcaTimer = setTimeout(() => { btn.textContent = shortHash(ca); btn.classList.remove("copied"); }, 1400);
 }
 
+// ---- add MURMUR to the visitor's wallet (EIP-747 wallet_watchAsset) --------------------------
+// Why: MetaMask / Trust / Rabby show an anonymous token until the visitor adds it — with name,
+// symbol, decimals and OUR logo. One click here attaches the token to the wallet with full
+// branding, so the "unknown / unverified token" first impression never happens. Purely opt-in:
+// nothing is requested until the button is pressed, and a browser without an injected provider
+// just gets the contract address copied instead. If the wallet sits on another chain we offer
+// Arc (5042) first, so the token lands in a wallet that can actually see it.
+const MURMUR_CA = "0x43D84EfE7174637cdA55Ae1560cd4BFf4BaAB490";
+const ARC_CHAIN_ID_HEX = "0x13b2";             // 5042 — Arc mainnet
+const ARC_CHAIN_PARAMS = {
+  chainId: ARC_CHAIN_ID_HEX,
+  chainName: "Arc",
+  nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },   // native layer is 18 (see src/chain.ts); the ERC-20 USDC wrapper is 6
+  rpcUrls: ["https://rpc.mainnet.arc.io"],
+  blockExplorerUrls: ["https://explorer.arc.io"],
+};
+
+async function addToWallet(btn) {
+  const eth = window.ethereum;
+  const label = btn.textContent;
+  btn.classList.add("is-busy");
+  const done = (txt) => {
+    btn.classList.remove("is-busy");
+    btn.textContent = txt; setTimeout(() => { btn.textContent = label; }, 2400);
+  };
+  if (!eth || typeof eth.request !== "function") {           // no injected wallet → copy the CA as the fallback
+    const ok = await copyToClipboard(MURMUR_CA);
+    done(ok ? "copied ✓" : "no wallet");
+    return;
+  }
+  try {
+    try {
+      const cid = await eth.request({ method: "eth_chainId" });
+      if (cid && String(cid).toLowerCase() !== ARC_CHAIN_ID_HEX) {
+        await eth.request({ method: "wallet_addEthereumChain", params: [ARC_CHAIN_PARAMS] });
+      }
+    } catch { /* chain add declined — watchAsset can still proceed on the active chain */ }
+    const ok = await eth.request({
+      method: "wallet_watchAsset",
+      params: { type: "ERC20", options: {
+        address: MURMUR_CA, symbol: "MURMUR", decimals: 18,
+        image: (location.origin.startsWith("http") ? location.origin : "https://flyx402.xyz") + "/token/murmur-logo-256.png",
+      } },
+    });
+    done(ok ? "added ✓" : "—");
+  } catch (e) {
+    done(e && e.code === 4001 ? "declined" : "not supported");
+  }
+}
+
 // ================= misc UI bindings =================
 // ================= language switcher + live re-render =================
 // On a language change we re-translate the static DOM (applyDom, done inside setLang) and then
@@ -6317,6 +6398,7 @@ function bindUI() {
     if (row) { e.preventDefault(); selectLineage(row.dataset.linHash); }
   });
   const tca = $("tca-copy"); if (tca) tca.addEventListener("click", () => copyTokenCA(tca));
+  const awt = $("tca-add"); if (awt) awt.addEventListener("click", () => addToWallet(awt));
   const xadmin = $("admin-copy"); if (xadmin) xadmin.addEventListener("click", () => copyTokenCA(xadmin));
   renderAdminWallet(ADMIN_WALLET_FALLBACK);   // declared ultimate-admin wallet (overridden by /state when it boots)
   const ulb = $("pulse-btn"); if (ulb) ulb.addEventListener("click", togglePulse);
