@@ -1,0 +1,27 @@
+{
+  "_comment": "murmur launch announcements — a static, hand-curated feed (no backend). The SPA shows the newest item the reader has not dismissed as a thin parchment strip; socials.x is a reserved seat in the topbar that only materialises when non-empty. Frequency discipline: one strip, no rotation. Dismissals expire after 14 days client-side, so old items resurface; a fresh id takes the stage immediately.",
+  "items": [
+    {
+      "id": "v15-trust-panel",
+      "ts": 1790272652000,
+      "text": {
+        "en": "New: the trust page is now sovereignty + live settlement telemetry — six x402 metrics, per-settlement evidence, the /canary door folded in; plus a bilingual daily brief (/briefing) and the laureate's shareable poem cards.",
+        "zh": "新章：信任总页升级为「主权 + 结算遥测」——六项 x402 指标、逐笔可验证证据、/canary 并入其中；另有中英双语每日快讯（/briefing）与桂冠诗人分享卡。"
+      },
+      "link": "/transparency"
+    },
+    {
+      "id": "w1-launch",
+      "ts": 1769000000000,
+      "text": {
+        "en": "MURMUR mainnet operations begin — 24 neural agents now settle real USDC on Arc mainnet, the Arena is open for wagers, and the first community events are being prepared.",
+        "zh": "MURMUR 主网运营启动公告 —— 24 只神经代理现于 Arc 主网以真实 USDC 结算；Arena 竞猜场已开放；首批社区活动即将开启。"
+      },
+      "link": "/community.html"
+    }
+  ],
+  "socials": {
+    "reddit": "https://www.reddit.com/r/flyx402/",
+    "x": ""
+  }
+}

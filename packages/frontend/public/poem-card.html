@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#f2eee6" />
+  <title>murmur — Laureate card / 桂冠诗卡</title>
+  <meta name="description" content="Share card for the Laureate: the fly swarm's own deterministic neuron-born poet. Open, screenshot, post to r/flyx402. 打开、截图、发帖。" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><g fill='%231a1a18'><circle cx='12' cy='14' r='3.1'/><circle cx='20.5' cy='11.5' r='2.3'/><circle cx='17.5' cy='21' r='1.9'/></g></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;1,9..144,300;1,9..144,400&family=IBM+Plex+Mono:wght@300;400&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --parchment: #f2eee6; --ink: #1a1a18; --muted: rgba(26, 26, 24, 0.55);
+      --accent: #b3542e; --hair: rgba(26, 26, 24, 0.16);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: #e8e3d8; -webkit-font-smoothing: antialiased; }
+    body { font-family: "IBM Plex Mono", monospace; color: var(--ink); display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 28px 16px 48px; }
+
+    .hint { max-width: 480px; text-align: center; font-size: 12px; line-height: 1.8; color: #4d4a44; }
+    .hint b { color: var(--accent); }
+    .toolbar { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+    .tool-btn {
+      font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--accent); background: #fff; border: 1px solid rgba(179, 84, 46, 0.4); border-radius: 2px;
+      padding: 9px 16px; cursor: pointer; transition: background 0.18s ease;
+    }
+    .tool-btn:hover { background: rgba(179, 84, 46, 0.1); }
+    .tool-btn.copied { color: var(--ink); border-color: var(--accent); }
+
+    /* the card itself — fixed 1200×1500 (4:5), screenshot-friendly */
+    #card {
+      width: 1200px; max-width: 100%; aspect-ratio: 4 / 5;
+      background: var(--parchment); color: var(--ink);
+      border: 1px solid var(--hair); box-shadow: 0 18px 50px rgba(26, 26, 24, 0.14);
+      padding: clamp(28px, 6%, 72px);
+      display: flex; flex-direction: column;
+      position: relative; overflow: hidden;
+    }
+    #card::before { /* faint grain, same recipe as transparency page */
+      content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0.05;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+    .card-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+    .brand { display: flex; align-items: baseline; gap: 9px; }
+    .brand svg { transform: translateY(3px); }
+    .brand .name { font-family: "Fraunces", serif; font-size: 26px; }
+    .card-no { font-size: 13px; letter-spacing: 0.14em; color: var(--muted); }
+    .era-line { margin-top: 10px; font-size: 14px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
+    .poem {
+      flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 0.62em;
+      font-family: "Fraunces", serif; font-style: italic; font-weight: 300;
+      font-size: clamp(22px, 3.4vw, 40px); line-height: 1.5; color: var(--ink);
+    }
+    .poem div { text-wrap: balance; }
+    .card-bottom { border-top: 1px solid var(--hair); padding-top: 16px; display: flex; justify-content: space-between; align-items: baseline; gap: 14px; font-size: 13px; color: var(--muted); }
+    .card-bottom .ca { color: var(--ink); }
+    .card-bottom a { color: var(--accent); text-decoration: none; }
+    .loading { text-align: center; font-size: 13px; color: var(--muted); padding: 40px 0; }
+  </style>
+</head>
+<body>
+  <p class="hint">
+    <b>Laureate share card</b> — the fly swarm's own deterministic neuron-born poet (no LLM, re-derivable from its
+    hash). Open this page, screenshot the card, post it to
+    <a href="https://www.reddit.com/r/flyx402/" target="_blank" rel="noopener noreferrer" style="color:var(--accent)">r/flyx402</a>.
+    <span style="display:block;margin-top:6px">桂冠诗分享卡——蜂群自己的确定性神经元诗人（无 LLM，可凭哈希重推导）。打开本页、截取卡片、发到 r/flyx402 即可。</span>
+  </p>
+
+  <div class="toolbar">
+    <button class="tool-btn" id="btn-copy" type="button">copy poem text</button>
+    <button class="tool-btn" id="btn-reload" type="button">next / refresh</button>
+  </div>
+
+  <div id="card" aria-live="polite">
+    <div class="card-top">
+      <span class="brand">
+        <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true" fill="#b3542e">
+          <circle cx="12" cy="14" r="3.1" /><circle cx="20.5" cy="11.5" r="2.3" /><circle cx="17.5" cy="21" r="1.9" />
+        </svg>
+        <span class="name">murmur</span>
+      </span>
+      <span class="card-no" id="card-no">poem · …</span>
+    </div>
+    <div class="era-line" id="card-era">the laureate</div>
+    <div class="poem" id="card-poem"><div class="loading">summoning the laureate… / 桂冠诗人正在落笔…</div></div>
+    <div class="card-bottom">
+      <span class="ca" id="card-ca">MURMUR 0x43D8…B490 · Arc 5042</span>
+      <a href="https://flyx402.xyz" target="_blank" rel="noopener noreferrer">flyx402.xyz · r/flyx402</a>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var poemText = "";
+      var noEl = document.getElementById("card-no");
+      var eraEl = document.getElementById("card-era");
+      var poemEl = document.getElementById("card-poem");
+      var btnCopy = document.getElementById("btn-copy");
+
+      function shortHash(h) { return h && h.length > 18 ? h.slice(0, 10) + "…" + h.slice(-6) : (h || ""); }
+
+      function render(p) {
+        poemText = (p.lines || []).join("\n");
+        noEl.textContent = "poem · №" + (p.seq || "?");
+        eraEl.textContent = (p.eraName || "the laureate") + "  ·  " + String(p.hash || "").slice(0, 16);
+        poemEl.innerHTML = "";
+        (p.lines || []).forEach(function (line) {
+          var d = document.createElement("div");
+          d.textContent = line;
+          poemEl.appendChild(d);
+        });
+        if (p.eraName) document.title = "murmur — poem №" + p.seq + " · " + p.eraName;
+      }
+
+      function fail(msg) {
+        poemEl.innerHTML = "";
+        var d = document.createElement("div");
+        d.textContent = msg;
+        poemEl.appendChild(d);
+      }
+
+      function load() {
+        poemEl.innerHTML = '<div class="loading">summoning the laureate… / 桂冠诗人正在落笔…</div>';
+        fetch("/poem", { headers: { accept: "application/json" } })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (d) {
+            var p = d && d.latest;
+            if (!d || d.enabled === false) return fail("the laureate sleeps (flag off) / 桂冠诗人沉睡中（未放行）");
+            if (!p || !p.lines || !p.lines.length) return fail("the first poem is still brewing (~30 min cadence) / 第一首诗还在酝酿（约 30 分钟一首）");
+            render(p);
+          })
+          .catch(function () { fail("the laureate is unreachable / 暂时联系不上诗人"); });
+      }
+
+      btnCopy.addEventListener("click", function () {
+        if (!poemText) return;
+        var done = function (ok) {
+          btnCopy.textContent = ok ? "copied ✓" : "copy poem text";
+          btnCopy.classList.toggle("copied", !!ok);
+          setTimeout(function () { btnCopy.textContent = "copy poem text"; btnCopy.classList.remove("copied"); }, 1500);
+        };
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(poemText).then(function () { done(true); }, function () { done(false); });
+        } else { done(false); }
+      });
+      document.getElementById("btn-reload").addEventListener("click", load);
+      load();
+    })();
+  </script>
+</body>
+</html>

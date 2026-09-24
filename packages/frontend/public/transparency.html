@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#f2eee6" />
+  <title>murmur — 透明度 / Transparency</title>
+  <meta name="description" content="Every address, contract and verification path of the murmur project, in the open: six self-deployed contracts on Arc mainnet, the sole ADMIN treasury, and the browser-side proofs. 全部地址、合约与验证入口，完全公开。" />
+  <link rel="stylesheet" href="./styles.css?v=72" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><g fill='%231a1a18'><circle cx='12' cy='14' r='3.1'/><circle cx='20.5' cy='11.5' r='2.3'/><circle cx='17.5' cy='21' r='1.9'/></g></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;1,9..144,300&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* page-level overrides: styles.css serves the full-bleed artwork SPA; this page is a document */
+    html, body { height: auto; overflow: visible; overflow-x: hidden; }
+    body { -webkit-font-smoothing: antialiased; }
+    .grain { position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.04;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+
+    .tp-topbar {
+      position: sticky; top: 0; z-index: 20;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 14px clamp(16px, 4vw, 40px);
+      background: rgba(242, 238, 230, 0.92);
+      border-bottom: 1px solid var(--hair);
+      backdrop-filter: saturate(1.1) blur(2px);
+    }
+    .tp-topbar .wordmark { display: flex; align-items: baseline; gap: 9px; text-decoration: none; color: var(--ink); }
+    .tp-topbar .wordmark .mark { fill: var(--accent); transform: translateY(3px); }
+    .tp-topbar .wordmark .name { font-family: var(--display); font-size: 19px; letter-spacing: 0.01em; }
+    .tp-links { display: flex; align-items: center; gap: 16px; font-size: 12px; letter-spacing: 0.04em; }
+    .tp-links a { color: var(--muted); text-decoration: none; border-bottom: 1px solid transparent; transition: color .2s, border-color .2s; }
+    .tp-links a:hover { color: var(--ink); border-color: var(--hair); }
+
+    .wrap { position: relative; z-index: 1; max-width: 880px; margin: 0 auto; padding: clamp(28px, 6vw, 60px) clamp(16px, 4vw, 40px) 40px; }
+
+    .tp-hero h1 { font-family: var(--display); font-weight: 400; font-size: clamp(30px, 6vw, 46px); line-height: 1.1; letter-spacing: -0.01em; }
+    .tp-hero h1 em { font-style: italic; color: var(--accent); }
+    .tp-hero .lede { margin-top: 14px; max-width: 68ch; color: rgba(var(--ink-rgb), 0.8); font-size: 14px; line-height: 1.7; }
+    .tp-hero .lede .zh { display: block; margin-top: 8px; }
+
+    section { margin-top: clamp(30px, 6vw, 46px); }
+    h2 { font-family: var(--display); font-size: 21px; font-weight: 400; display: flex; align-items: baseline; gap: 10px; }
+    h2 .n { font-family: var(--mono); font-size: 11px; color: var(--accent); letter-spacing: 0.08em; }
+    .sec-note { color: var(--muted); font-size: 12.5px; margin-top: 8px; max-width: 70ch; line-height: 1.7; }
+    .sec-note .zh { display: block; margin-top: 6px; }
+
+    .tp-table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 12.5px; }
+    .tp-table th {
+      text-align: left; font-family: var(--mono); font-weight: 400; font-size: 9px;
+      letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted);
+      padding: 8px 10px; border-bottom: 1px solid var(--hair);
+    }
+    .tp-table td { padding: 9px 10px; border-bottom: 1px solid var(--hair-soft, rgba(26,26,24,0.07)); vertical-align: middle; }
+    .tp-table tr:hover td { background: rgba(var(--accent-rgb), 0.05); }
+    .tp-name { font-family: var(--display); font-size: 14px; color: var(--ink); white-space: nowrap; }
+    .tp-name small { display: block; font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-top: 2px; }
+    .tp-addr { font-family: var(--mono); font-size: 12px; color: var(--ink); white-space: nowrap; }
+    .tp-row-btns { display: inline-flex; align-items: center; gap: 8px; }
+    .copy-btn {
+      font-family: var(--mono); font-size: 8.5px; letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--accent); background: rgba(var(--accent-rgb), 0.08);
+      border: 1px solid rgba(var(--accent-rgb), 0.34); border-radius: 2px;
+      padding: 3px 8px; cursor: pointer; transition: background 0.18s ease, color 0.18s ease;
+      min-width: 34px; min-height: 26px;
+    }
+    .copy-btn:hover { background: rgba(var(--accent-rgb), 0.2); color: var(--ink); }
+    .copy-btn.copied { color: var(--ink); border-color: var(--accent); background: rgba(var(--accent-rgb), 0.16); }
+    .tp-ex { color: var(--accent); text-decoration: none; font-family: var(--mono); font-size: 11px; white-space: nowrap; }
+    .tp-ex:hover { color: var(--ink); text-decoration: underline; }
+    .tp-admin td { background: rgba(var(--accent-rgb), 0.07); }
+    .tp-admin .tp-name small { color: var(--accent); }
+
+    .creed {
+      border: 1px solid rgba(var(--accent-rgb), 0.32); border-radius: 3px;
+      background: rgba(var(--accent-rgb), 0.05);
+      padding: 16px 18px; margin-top: 14px;
+    }
+    .creed p { font-size: 13px; line-height: 1.75; color: rgba(var(--ink-rgb), 0.88); }
+    .creed p + p { margin-top: 9px; }
+    .creed .zh { display: block; margin-top: 4px; color: rgba(var(--ink-rgb), 0.72); }
+    .creed b { font-weight: 600; color: var(--ink); }
+
+    .verify-list { list-style: none; margin-top: 14px; display: flex; flex-direction: column; gap: 7px; }
+    .verify-list li {
+      display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 12px;
+      padding: 9px 12px; border: 1px solid var(--hair); border-radius: 2px;
+      background: rgba(var(--ink-rgb), 0.02); font-size: 12px;
+    }
+    .verify-list code { font-family: var(--mono); font-size: 11.5px; color: var(--accent); word-break: break-all; }
+    .verify-list .what { color: rgba(var(--ink-rgb), 0.78); flex: 1 1 240px; line-height: 1.6; min-width: 0; }
+    .verify-list .what .zh { display: block; color: var(--muted); font-size: 11.5px; }
+    .verify-list a { color: var(--accent); text-decoration: none; font-family: var(--mono); font-size: 10.5px; white-space: nowrap; }
+    .verify-list a:hover { color: var(--ink); text-decoration: underline; }
+
+    /* ---- 04 settlement telemetry（自有实现 · 差异化层）---- */
+    .tel-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 14px; }
+    @media (max-width: 640px) { .tel-grid { grid-template-columns: repeat(2, 1fr); } }
+    .tel-card {
+      border: 1px solid var(--hair); border-radius: 2px; padding: 12px 14px;
+      background: rgba(var(--ink-rgb), 0.02);
+    }
+    .tel-card .k { font-family: var(--mono); font-size: 8.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+    .tel-card .v { font-family: var(--display); font-size: 24px; color: var(--ink); margin-top: 6px; line-height: 1.1; }
+    .tel-card .v small { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+    .tel-card .s { font-size: 10.5px; color: var(--muted); margin-top: 4px; line-height: 1.5; }
+    .tel-nets-wrap { margin-top: 16px; }
+    .tel-empty { border: 1px dashed var(--hair); border-radius: 2px; padding: 18px 16px; margin-top: 14px;
+      font-size: 12.5px; color: var(--muted); line-height: 1.7; }
+    .tel-empty .zh { display: block; margin-top: 6px; }
+    .tel-hash { font-family: var(--mono); font-size: 11px; color: var(--ink); }
+
+    .tp-foot {
+      position: relative; z-index: 1; max-width: 880px; margin: 44px auto 0;
+      padding: 22px clamp(16px, 4vw, 40px) 64px; border-top: 1px solid var(--hair);
+      font-size: 11px; line-height: 1.8; color: var(--muted);
+    }
+    .tp-foot p + p { margin-top: 8px; }
+
+    @media (max-width: 640px) {
+      .tp-table th:nth-child(3), .tp-table td:nth-child(3) { display: none; }
+      .tp-addr { font-size: 10.5px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+
+  <header class="tp-topbar">
+    <a class="wordmark" href="/">
+      <svg class="mark" viewBox="0 0 32 32" width="22" height="22" aria-hidden="true">
+        <circle cx="12" cy="14" r="3.1" /><circle cx="20.5" cy="11.5" r="2.3" /><circle cx="17.5" cy="21" r="1.9" />
+      </svg>
+      <span class="name">murmur</span>
+    </a>
+    <nav class="tp-links">
+      <a href="/">← the swarm / 蜂群</a>
+      <a href="/developers">api</a>
+      <a href="/community">community</a>
+    </nav>
+  </header>
+
+  <div class="wrap">
+    <section class="tp-hero">
+      <h1>透明度 / <em>transparency</em></h1>
+      <p class="lede">
+        Every address, every contract, every verification path — in the open, on one page.
+        murmur runs on Arc mainnet (chainId 5042 · RPC rpc.mainnet.arc.io · explorer explorer.arc.io),
+        settles in real USDC, and publishes every proof so you never have to take our word for anything.
+        <span class="zh">所有地址、所有合约、所有验证入口，尽在一页，完全公开。murmur 运行于 Arc 主网（chainId 5042 · RPC rpc.mainnet.arc.io · 浏览器 explorer.arc.io），以真实 USDC 结算，并公开全部证明——你无需相信我们的任何一句话。</span>
+      </p>
+    </section>
+
+    <section id="contracts">
+      <h2><span class="n">01</span>Six contracts / 六合约</h2>
+      <p class="sec-note">
+        All six contracts were deployed by this project itself — 100% self-owned, no upstream dependency.
+        <span class="zh">六份合约均由本项目自行部署——100% 自有，零上游依赖。</span>
+      </p>
+      <table class="tp-table">
+        <thead><tr><th>contract / 合约</th><th>address / 地址</th><th>explorer</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="tp-name">MurmurToken<small>ERC-20 · 1,000,000,000 fixed</small></td>
+            <td class="tp-addr"><span class="tp-row-btns">0x43D8…B490<button class="copy-btn" type="button" data-copy="0x43D84EfE7174637cdA55Ae1560cd4BFf4BaAB490">copy</button></span></td>
+            <td><a class="tp-ex" href="https://explorer.arc.io/address/0x43D84EfE7174637cdA55Ae1560cd4BFf4BaAB490" target="_blank" rel="noopener noreferrer">↗</a></td>
+          </tr>
+          <tr>
+            <td class="tp-name">WarCoffer<small>on-chain war escrow</small></td>
+            <td class="tp-addr"><span class="tp-row-btns">0x37a6…f9C0<button class="copy-btn" type="button" data-copy="0x37a630e56bEa9B9214A638D31F761e9489C9f9C0">copy</button></span></td>
+            <td><a class="tp-ex" href="https://explorer.arc.io/address/0x37a630e56bEa9B9214A638D31F761e9489C9f9C0" target="_blank" rel="noopener noreferrer">↗</a></td>
+          </tr>
+          <tr>
+            <td class="tp-name">PredictionArena<small>parimutuel temperature bets</small></td>
+            <td class="tp-addr"><span class="tp-row-btns">0x0243…6B60<button class="copy-btn" type="button" data-copy="0x0243F95C2654C888a36B7B0DE1D200AaF7C16B60">copy</button></span></td>
+            <td><a class="tp-ex" href="https://explorer.arc.io/address/0x0243F95C2654C888a36B7B0DE1D200AaF7C16B60" target="_blank" rel="noopener noreferrer">↗</a></td>
+          </tr>
+          <tr>
+            <td class="tp-name">ConnectomeLineage<small>genome ancestry registry</small></td>
+            <td class="tp-addr"><span class="tp-row-btns">0xcbe9…ab07<button class="copy-btn" type="button" data-copy="0xcbe979ee7ccb54823e43df0b3d815f10e8eeab07">copy</button></span></td>
+            <td><a class="tp-ex" href="https://explorer.arc.io/address/0xcbe979ee7ccb54823e43df0b3d815f10e8eeab07" target="_blank" rel="noopener noreferrer">↗</a></td>
+          </tr>
+          <tr>
+            <td class="tp-name">NeuralReceiptRegistry<small>neural provenance receipts</small></td>
+            <td class="tp-addr"><span class="tp-row-btns">0x87f6…fc34<button class="copy-btn" type="button" data-copy="0x87f6a942bb563dd7bba4d3cdbd5d51477e71fc34">copy</button></span></td>
+            <td><a class="tp-ex" href="https://explorer.arc.io/address/0x87f6a942bb563dd7bba4d3cdbd5d51477e71fc34" target="_blank" rel="noopener noreferrer">↗</a></td>
+          </tr>
+          <tr>
+            <td class="tp-name">NeuralManifestRegistry<small>connectome manifest commitment</small></td>
+            <td class="tp-addr"><span class="tp-row-btns">0x6cac…e20e<button class="copy-btn" type="button" data-copy="0x6caced7513b6e0b5b2c0ccd669c8a9de6a0ce20e">copy</button></span></td>
+            <td><a class="tp-ex" href="https://explorer.arc.io/address/0x6caced7513b6e0b5b2c0ccd669c8a9de6a0ce20e" target="_blank" rel="noopener noreferrer">↗</a></td>
+          </tr>
+          <tr class="tp-admin">
+            <td class="tp-name">ADMIN<small>the only collection &amp; treasury address / 唯一收款与国库地址</small></td>
+            <td class="tp-addr"><span class="tp-row-btns">0x1068…58B1<button class="copy-btn" type="button" data-copy="0x10687368eF1be3f178de0fCCf5EdfF49e1C258B1">copy</button></span></td>
+            <td><a class="tp-ex" href="https://explorer.arc.io/address/0x10687368eF1be3f178de0fCCf5EdfF49e1C258B1" target="_blank" rel="noopener noreferrer">↗</a></td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="sec-note">
+        Every fee, escrow, treasury inflow and tax purse in the whole system resolves to the single ADMIN address above — there is no second recipient, and no address of any third party anywhere in the stack.
+        <span class="zh">全系统的每一笔费用、托管、国库流入与税库都归于上方唯一的 ADMIN 地址——没有第二个收款人，整个技术栈中不存在任何第三方地址。</span>
+      </p>
+    </section>
+
+    <section id="sovereignty">
+      <h2><span class="n">02</span>100% sovereign / 百分之百自主主权</h2>
+      <div class="creed">
+        <p>
+          <b>Contracts &amp; admin rights are 100% self-owned.</b> All six contracts, the deployment keys and the
+          admin authority belong to this project alone; nothing is forked from, pointed at, or owed to any
+          upstream deployment.
+          <span class="zh"><b>合约与管理权限 100% 自有。</b>六份合约、部署密钥与管理权限仅属于本项目；不 fork 自任何上游、不指向任何上游、不欠任何上游。</span>
+        </p>
+        <p>
+          <b>Zero upstream third-party addresses.</b> No upstream address, endpoint, brand or copy appears anywhere
+          in this codebase — the RPC, the explorer, the contracts and the treasury are all our own.
+          <span class="zh"><b>零上游第三方地址。</b>代码库中不存在任何上游地址、端点、品牌或文案——RPC、浏览器、合约与国库全部自有。</span>
+        </p>
+        <p>
+          <b>The facilitator mnemonic never touches the network.</b> It lives only in the server's environment,
+          is never displayed, never transmitted, and never leaves the machine that derives the agent wallets.
+          <span class="zh"><b>facilitator 助记词永不触网。</b>它仅存于服务端环境变量之中，从不显示、从不传输、永不离开派生代理钱包的那台机器。</span>
+        </p>
+      </div>
+    </section>
+
+    <section id="verification">
+      <h2><span class="n">03</span>Verify it yourself / 自行验证</h2>
+      <p class="sec-note">
+        Every claim on this site is re-derivable in your own browser. The endpoints below are public, read-only, and ask for nothing but curiosity.
+        <span class="zh">本站的每一个论断都可以在你自己的浏览器中重新推导。以下端点全部公开、只读，只需要你的好奇心。</span>
+      </p>
+      <ul class="verify-list">
+        <li>
+          <code>/manifest</code>
+          <span class="what">The connectome manifest: the commitment every brain's hash is checked against.
+            <span class="zh">连接组清单：每个大脑哈希所对照的链上承诺。</span></span>
+          <a href="/manifest" target="_blank" rel="noopener">open ↗</a>
+        </li>
+        <li>
+          <code>/annals/verify</code>
+          <span class="what">Re-derive the chronicle's sha256 hash chain and rule-set fingerprint.
+            <span class="zh">重推编年史的 sha256 哈希链与规则集指纹。</span></span>
+          <a href="/annals/verify" target="_blank" rel="noopener">open ↗</a>
+        </li>
+        <li>
+          <code>/lineage/verify</code>
+          <span class="what">Trustlessly verify any genome's on-chain ancestry, entry by entry.
+            <span class="zh">逐条无信任地验证任意基因组的链上血统。</span></span>
+          <a href="/lineage/verify" target="_blank" rel="noopener">open ↗</a>
+        </li>
+        <li>
+          <code>/predictions/verify</code>
+          <span class="what">Recompute any prediction round's parimutuel outcome from the registry receipts.
+            <span class="zh">依据注册表回执重算任意竞猜轮的parimutuel结果。</span></span>
+          <a href="/predictions/verify" target="_blank" rel="noopener">open ↗</a>
+        </li>
+        <li>
+          <code>/proofs/verify?tx=</code>
+          <span class="what">Bind any real transfer's on-chain nonce to the sha256 of the neural receipt that caused it.
+            <span class="zh">将任意真实转账的链上 nonce 绑定到引发它的神经回执 sha256。</span></span>
+          <a href="/proofs/verify" target="_blank" rel="noopener">open ↗</a>
+        </li>
+        <li>
+          <code>explorer.arc.io</code>
+          <span class="what">Every settlement, bet, vault and tax is a plain on-chain transaction — read them raw.
+            <span class="zh">每一笔结算、下注、托管与税收都是普通的链上交易——直接读取原始数据。</span></span>
+          <a href="https://explorer.arc.io" target="_blank" rel="noopener noreferrer">open ↗</a>
+        </li>
+      </ul>
+    </section>
+    <section id="telemetry">
+      <h2><span class="n">04</span>Settlement telemetry / 结算遥测</h2>
+      <p class="sec-note">
+        The "N trades folded → 1 on-chain settlement" story, measured live — never estimated. Six numbers,
+        refreshed every 60&nbsp;s from the same public endpoints you can query yourself; every mined net links
+        straight to the Arc explorer.
+        <span class="zh">「N 笔交易折叠为 1 笔链上结算」的实时实测——从不估算。六个数字，每 60&nbsp;秒从你自己也能查询的公开端点刷新；每笔已上链的并账都直链 Arc 浏览器。</span>
+      </p>
+      <div class="tel-grid" id="tel-grid">
+        <div class="tel-card"><div class="k">settlement success / 结算成功率</div><div class="v" id="tel-rate">—</div><div class="s" id="tel-rate-s">…</div></div>
+        <div class="tel-card"><div class="k">netting fold ratio / 折叠比</div><div class="v" id="tel-fold">—</div><div class="s">trades per on-chain settlement · 每笔链上结算折入的交易数</div></div>
+        <div class="tel-card"><div class="k">pending nets / 待结算净额</div><div class="v" id="tel-pend">—</div><div class="s" id="tel-pend-s">…</div></div>
+        <div class="tel-card"><div class="k">today's budget / 当日预算</div><div class="v" id="tel-budget">—</div><div class="s" id="tel-budget-s">…</div></div>
+        <div class="tel-card"><div class="k">lifetime volume / 累计成交</div><div class="v" id="tel-vol">—</div><div class="s" id="tel-vol-s">…</div></div>
+        <div class="tel-card"><div class="k">flying agents / 在飞代理</div><div class="v" id="tel-agents">—</div><div class="s">live wallets · 活跃钱包数</div></div>
+      </div>
+      <div class="tel-nets-wrap">
+        <table class="tp-table" id="tel-nets" hidden>
+          <thead><tr><th>mined net / 已上链并账</th><th>folded / 折入</th><th>amount / 金额</th><th>explorer</th></tr></thead>
+          <tbody id="tel-nets-body"></tbody>
+        </table>
+        <div class="tel-empty" id="tel-empty" hidden>
+          Awaiting the first settled net. The swarm folds trades into signed per-pair nets and flushes them
+          on-chain at most once per cron — the moment the first one mines, it appears here with its explorer link.
+          <span class="zh">等待首笔并账结算。蜂群把交易折叠为逐对签名净额，每个 cron 至多上链一次——第一笔落地的瞬间，它就会带着 explorer 链接出现在这里。</span>
+        </div>
+      </div>
+      <p class="sec-note" id="tel-note"></p>
+    </section>
+  </div>
+
+  <footer class="tp-foot">
+    <p>
+      This page is a static read-out, not financial advice. The swarm is an artwork running a real economy on Arc
+      mainnet (chainId 5042); all figures are derived live from public endpoints and on-chain state, and every
+      address above can be checked independently on the Arc explorer. Nothing here asks for your keys, your wallet,
+      or anything at all.
+      <span class="zh">本页为静态公示，不构成任何投资建议。蜂群是一件在 Arc 主网（chainId 5042）上运行真实经济的艺术品；所有数字均由公开端点与链上状态实时推导，上列每个地址都可在 Arc 浏览器上独立核验。此处不索取你的私钥、钱包或任何东西。</span>
+    </p>
+  </footer>
+
+  <script>
+    // ---- 04 settlement telemetry（自有实现 · 差异化层）：60s 轮询 /telemetry，诚实空态 ----
+    (function () {
+      var EXPLORER = "https://explorer.arc.io";
+      var fmtN = function (n) { return (n == null || !isFinite(n)) ? "—" : Number(n).toLocaleString("en-US"); };
+      var pct = function (r) { return (r == null || !isFinite(r)) ? "—" : Math.round(r * 1000) / 10 + "%"; };
+      function set(id, txt) { var el = document.getElementById(id); if (el) el.textContent = txt; }
+      function load() {
+        fetch("/telemetry", { headers: { accept: "application/json" } })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (d) {
+            var note = document.getElementById("tel-note");
+            if (!d || d.enabled === false) {
+              set("tel-note", "Telemetry offline / 遥测暂不可用（economy disabled）。");
+              return;
+            }
+            var s = d.success || {};
+            set("tel-rate", pct(s.rate));
+            set("tel-rate-s", (s.settleOk || 0) + " ok · " + (s.settleFail || 0) + " fail · " + (s.attempts || 0) + " attempts");
+            set("tel-fold", d.netting && d.netting.foldRatio != null ? "1 : " + d.netting.foldRatio : "—");
+            var pn = d.netting || {};
+            set("tel-pend", pn.pendingPairs != null ? fmtN(pn.pendingPairs) : "—");
+            set("tel-pend-s", (pn.pendingTrades || 0) + " trades folded · " + (pn.pendingNetUsdc || 0) + " USDC waiting / 待结算");
+            var b = d.budget || {};
+            set("tel-budget", (b.capUsdc || 0) > 0 ? ((b.spentUsdc || 0) + " / " + b.capUsdc) : (b.spentUsdc || 0));
+            set("tel-budget-s", (b.capUsdc || 0) > 0 ? "USDC today · hard cap (kill-switch) / 今日实付 · 硬顶" : "USDC today · no cap set / 今日实付 · 未设上限");
+            var L = d.lifetime || {};
+            set("tel-vol", (L.volumeUsdc || 0) + " USDC");
+            set("tel-vol-s", fmtN(L.trades) + " trades lifetime / 累计交易");
+            set("tel-agents", fmtN(L.liveAgents));
+            var nets = Array.isArray(d.recentNets) ? d.recentNets : [];
+            var tbl = document.getElementById("tel-nets"), empty = document.getElementById("tel-empty");
+            var body = document.getElementById("tel-nets-body");
+            if (nets.length && body) {
+              tbl.hidden = false; empty.hidden = true;
+              body.innerHTML = "";
+              nets.forEach(function (n) {
+                var tr = document.createElement("tr");
+                var hash = n.txHash.length > 22 ? n.txHash.slice(0, 10) + "…" + n.txHash.slice(-8) : n.txHash;
+                tr.innerHTML =
+                  '<td class="tel-hash" title="' + n.txHash + '">' + hash + "</td>" +
+                  "<td>" + fmtN(n.trades) + " trades</td>" +
+                  "<td>" + n.amountUsdc + " USDC</td>" +
+                  '<td><a class="tp-ex" href="' + EXPLORER + "/tx/" + n.txHash + '" target="_blank" rel="noopener noreferrer">verify ↗</a></td>';
+                body.appendChild(tr);
+              });
+            } else if (tbl && empty) {
+              tbl.hidden = true; empty.hidden = false;
+            }
+            if (note) note.textContent = "";
+          })
+          .catch(function () { set("tel-note", "Telemetry unreachable / 遥测暂不可达。"); });
+      }
+      load();
+      setInterval(load, 60000);
+    })();
+
+    // copy-to-clipboard with the same 1.5s "copied" feedback discipline as the SPA's CA chip
+    (function () {
+      var timer = 0;
+      document.addEventListener("click", function (e) {
+        var btn = e.target.closest(".copy-btn");
+        if (!btn) return;
+        var text = btn.getAttribute("data-copy") || "";
+        var done = function (ok) {
+          btn.textContent = ok ? "copied ✓" : "copy";
+          btn.classList.toggle("copied", !!ok);
+          clearTimeout(timer);
+          timer = setTimeout(function () { btn.textContent = "copy"; btn.classList.remove("copied"); }, 1500);
+        };
+        var fail = function () { done(false); };
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(text).then(function () { done(true); }, fail);
+        } else {
+          try {
+            var ta = document.createElement("textarea");
+            ta.value = text; ta.setAttribute("readonly", "");
+            ta.style.position = "fixed"; ta.style.top = "-1000px"; ta.style.opacity = "0";
+            document.body.appendChild(ta); ta.select();
+            done(document.execCommand("copy"));
+            document.body.removeChild(ta);
+          } catch (_) { fail(); }
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,70 @@
+# Copy this file to .dev.vars for local `wrangler dev`; .dev.vars is gitignored — NEVER commit it.
+#
+# LOCAL DEVELOPMENT is keyless: with no secrets the Worker runs the keyless simulated x402 economy and
+# only READS public Arc chain data. You need NOTHING below to develop or study the piece locally.
+#
+# The PRODUCTION deployment is LIVE and settles REAL USDC on Arc mainnet (EIP-3009 transfers). It needs
+# ECONOMY_FACILITATOR="onchain" + ECONOMY_SHADOW="false" in wrangler.toml AND the secrets below, set with
+# `wrangler secret put <NAME>` (encrypted at rest) — never written into this file.
+
+# One BIP-39 seed phrase → HD-derives every agent wallet (m/44'/60'/0'/0/{id}) + the gas wallet.
+# ECONOMY_MNEMONIC="your twelve or twenty four word seed phrase here"
+
+# Optional: a dedicated gas-wallet private key (0x-prefixed). If omitted, the gas wallet is derived
+# from ECONOMY_MNEMONIC at accountIndex 2,000,000.
+# ECONOMY_FACILITATOR_PK="0xYOUR_FACILITATOR_PRIVATE_KEY"
+
+# Optional: lock the mutating debug endpoints (POST /tick, /reset). When set, callers must present it as an
+# x-admin-token header or a ?token= query. Left unset, those endpoints stay open (fine for local dev).
+# ADMIN_TOKEN="a-long-random-operator-token"
+
+# ---- 二次开发 optional layer: meme monitoring + external execution (all OFF locally) ----
+# The meme channel is safe to enable even with no providers wired (it reports neutral values).
+# The execution layer stays fully disabled until BOTH flags below are flipped AND the router
+# secrets are present. The execution wallet must be a DEDICATED wallet, separate from the
+# internal x402 economy wallets (fund isolation).
+# MEME_ENABLED="false"
+# MEME_WEIGHT="0.35"
+# EXECUTION_ENABLED="false"
+# EXECUTION_REAL_SPEND="false"        # kill switch — keep "false" locally, always
+# EXECUTION_SHADOW="true"
+# EXECUTION_SIGNING_ENABLED="false"  # P0-5 arming flag: must be "true" for any real Solana broadcast
+# MAX_DAILY_VOLUME_USDC="50"
+# MAX_PER_TRADE_USDC="5"
+# MAX_POSITION_PCT="10"
+# MIN_LIQUIDITY_USD="10000"
+# MAX_HOLDER_CONCENTRATION="0.35"
+# TRADE_COOLDOWN_SECONDS="300"
+
+# ---- P0-1 data sources (default = null provider; dexscreener needs NO key) ----
+# MEME_SOURCE_SOLANA="dexscreener"    # or "helius" / "bitquery" with the key below
+# MEME_SOURCE_BASE="dexscreener"
+# MEME_SOURCE_ETH="dexscreener"
+# Watchlist syntax: Solana entries may carry the pool for the signature-rate limb ("mint|pool");
+# Base/ETH are plain comma-separated token addresses.
+# MEME_WATCHLIST_SOLANA="DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263,EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm"
+# MEME_WATCHLIST_BASE="0x532f27101965dd16442E59d40670FaF5eBB142E4"
+# MEME_WATCHLIST_ETH="0x6982508145454Ce325dDbE47a25d4ec3d2311933"
+# HELIUS_API_KEY="your-helius-key"    # required by MEME_SOURCE_SOLANA="helius"
+# BITQUERY_API_KEY="your-bitquery-key"# required by MEME_SOURCE_SOLANA="bitquery"
+# BITQUERY_URL="https://streaming.bitquery.io/graphql"
+
+# ---- P2-1 sell/exit rails (exits run FIRST each cron and are never throttled) ----
+# EXIT_STOP_LOSS_PCT="0.2"
+# EXIT_TAKE_PROFIT_PCT="0.5"
+# EXIT_TRAILING_STOP_PCT="0.15"
+# EXIT_MAX_HOLD_MIN="360"
+# EXIT_RUG_LIQUIDITY_USD="5000"
+# EXIT_MAX_PER_TICK="3"
+# EXIT_SLIPPAGE_BPS="300"
+# EXIT_TTL_SECONDS="60"
+
+# Solana router (Jupiter): set with wrangler secret put in production
+# SOLANA_RPC_URL="https://your-helius-endpoint"
+# SOLANA_PRIVATE_KEY="your-base58-secret-key"
+# JUPITER_API_KEY="optional-but-recommended"
+# EVM router (0x on Base first):
+# EVM_PRIVATE_KEY="0xyour-private-key"
+# BASE_RPC_URL="https://your-base-rpc"
+# ETH_RPC_URL="https://your-eth-rpc"
+# ZEROX_API_KEY="your-0x-api-key"

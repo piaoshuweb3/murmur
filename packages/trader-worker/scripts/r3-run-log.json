@@ -1,0 +1,230 @@
+{
+  "startedAt": "2026-09-23T07:45:54.649Z",
+  "network": "arc-mainnet-5042",
+  "facilitator": "0x20c54D8Fa205af293181833b46494d97d54753f3",
+  "admin": "0x10687368eF1be3f178de0fCCf5EdfF49e1C258B1",
+  "units": {
+    "murmur": {
+      "address": "0x43d84efe7174637cda55ae1560cd4bff4baab490",
+      "txs": [
+        {
+          "kind": "deploy",
+          "hash": "0xdb4039523db7f1a6059336038e9f2e00ac18b9962929ca8cadcfe139e1d42880"
+        }
+      ],
+      "resumed": true,
+      "gasBefore": "5027333003982384962"
+    },
+    "registry": {
+      "address": "0x87f6a942bb563dd7bba4d3cdbd5d51477e71fc34",
+      "txs": [
+        {
+          "kind": "deploy",
+          "hash": "0x52b49c93550d42afcd6d88f264eb4570bc0fef3bb2fbe773e7e85cd7f4805d2b"
+        }
+      ],
+      "resumed": true,
+      "gasBefore": "5027333003982384962"
+    },
+    "manifest": {
+      "address": "0x6caced7513b6e0b5b2c0ccd669c8a9de6a0ce20e",
+      "txs": [
+        {
+          "kind": "deploy",
+          "hash": "0x26dcbf8da78e72eb3422a5d27c5677e88d792438f357e9c909d4cf29af78c9a5"
+        },
+        {
+          "kind": "commit",
+          "hash": "0x34f54af5a16953bcd253eb553b3eb4bad04ade2526c36dc0bfbd584cf5e909c8"
+        }
+      ],
+      "resumed": true,
+      "gasBefore": "5027333003982384962",
+      "manifestHash": "0x403551bb4ed89402632e2e3c9c3abec3883e84b27931be78928e2f100f6efc02"
+    },
+    "lineage": {
+      "address": "0xcbe979ee7ccb54823e43df0b3d815f10e8eeab07",
+      "txs": [
+        {
+          "kind": "deploy",
+          "hash": "0x42903f3a5c5bc050df9221418427d9926ebbcdbb35f917d4a013e0f352dc75f9"
+        }
+      ],
+      "gasBefore": "5027333003982384962"
+    },
+    "war": {
+      "address": "0x37a630e56bea9b9214a638d31f761e9489c9f9c0",
+      "txs": [
+        {
+          "kind": "deploy",
+          "hash": "0x0d2a02522babf997edc6f248b9e546fcc80bccdfcd18dabe8379bb11525db3bb"
+        }
+      ],
+      "gasBefore": "5016161161197115773"
+    },
+    "arena": {
+      "address": "0x0243f95c2654c888a36b7b0de1d200aaf7c16b60",
+      "txs": [
+        {
+          "kind": "deploy",
+          "hash": "0xb4e412b1e94b80c36e4ed3e7f233d6b4c4f201e96be3edee4de8fc49a9244be0"
+        }
+      ],
+      "gasBefore": "4995770117512430249"
+    }
+  },
+  "asserts": [
+    {
+      "ok": true,
+      "label": "chainId=5042",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "label": "种子派生(index 2M) == 充值地址",
+      "detail": "0x20c54D8Fa205af293181833b46494d97d54753f3"
+    },
+    {
+      "ok": true,
+      "label": "gas 余额就绪",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "label": "facilitator 黑名单零命中",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "label": "symbol=MURMUR decimals=18",
+      "detail": "MURMUR/18"
+    },
+    {
+      "ok": true,
+      "label": "totalSupply = 1,000,000,000 MURMUR（一次性铸后固化）",
+      "detail": "1000000000000000000000000000"
+    },
+    {
+      "ok": true,
+      "label": "treasury(ADMIN 0x1068…58B1) 持有全额供应",
+      "detail": "1000000000000000000000000000"
+    },
+    {
+      "ok": true,
+      "label": "committer == facilitator",
+      "detail": "0x20c54D8Fa205af293181833b46494d97d54753f3"
+    },
+    {
+      "ok": true,
+      "label": "chainHead 为空（Worker 首次 commit 惰性播种）",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "label": "committer == facilitator",
+      "detail": "0x20c54D8Fa205af293181833b46494d97d54753f3"
+    },
+    {
+      "ok": true,
+      "label": "latestHash 非空（生产脑已锚定）",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "label": "isCommitted(latestHash) = true",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "label": "lineage 地址已落盘",
+      "detail": "0xcbe979ee7ccb54823e43df0b3d815f10e8eeab07"
+    },
+    {
+      "ok": true,
+      "label": "committer == facilitator",
+      "detail": "0x20c54D8Fa205af293181833b46494d97d54753f3"
+    },
+    {
+      "ok": true,
+      "label": "commitCount = 0（全新）",
+      "detail": "0"
+    },
+    {
+      "ok": true,
+      "label": "lineage PUSH20 扫描完成",
+      "detail": "立即数地址 0 个，非白名单 0 个（数据区候选不硬败，黑名单命中才硬败）"
+    },
+    {
+      "ok": true,
+      "label": "war 地址已落盘",
+      "detail": "0x37a630e56bea9b9214a638d31f761e9489c9f9c0"
+    },
+    {
+      "ok": true,
+      "label": "usdc == Arc 原生 USDC precompile(0x3600…0000)",
+      "detail": "0x3600000000000000000000000000000000000000"
+    },
+    {
+      "ok": true,
+      "label": "resolver == facilitator",
+      "detail": "0x20c54D8Fa205af293181833b46494d97d54753f3"
+    },
+    {
+      "ok": true,
+      "label": "maxEscrow = 50 USDC（immutable 硬顶）",
+      "detail": "50000000"
+    },
+    {
+      "ok": true,
+      "label": "staleGrace = 3 天（生产参数）",
+      "detail": "259200"
+    },
+    {
+      "ok": true,
+      "label": "warCount = 0（战库空仓启动）",
+      "detail": "0"
+    },
+    {
+      "ok": true,
+      "label": "war PUSH20 扫描完成",
+      "detail": "立即数地址 0 个，非白名单 0 个（数据区候选不硬败，黑名单命中才硬败）"
+    },
+    {
+      "ok": true,
+      "label": "arena 地址已落盘",
+      "detail": "0x0243f95c2654c888a36b7b0de1d200aaf7c16b60"
+    },
+    {
+      "ok": true,
+      "label": "token == 本部署 MurmurToken",
+      "detail": "0x43D84EfE7174637cdA55Ae1560cd4BFf4BaAB490"
+    },
+    {
+      "ok": true,
+      "label": "resolver == facilitator",
+      "detail": "0x20c54D8Fa205af293181833b46494d97d54753f3"
+    },
+    {
+      "ok": true,
+      "label": "staleGrace = 3 天（生产参数）",
+      "detail": "259200"
+    },
+    {
+      "ok": true,
+      "label": "roundCount = 0（全新）",
+      "detail": "0"
+    },
+    {
+      "ok": true,
+      "label": "arena PUSH20 扫描完成",
+      "detail": "立即数地址 0 个，非白名单 0 个（数据区候选不硬败，黑名单命中才硬败）"
+    }
+  ],
+  "gas": {
+    "balanceBefore": "5027333003982384962",
+    "balanceAfter": "4970674008071828807",
+    "spent": "56658995910556155"
+  },
+  "finishedAt": "2026-09-23T07:46:14.074Z",
+  "ok": true
+}

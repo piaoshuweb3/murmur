@@ -1,0 +1,30 @@
+{
+  "name": "flyx402 MURMUR Token List",
+  "timestamp": "2026-09-24T18:00:00.000Z",
+  "version": {
+    "major": 1,
+    "minor": 0,
+    "patch": 0
+  },
+  "tags": {},
+  "logoURI": "https://flyx402.xyz/token/murmur-logo.png",
+  "keywords": [
+    "murmur",
+    "flyx402",
+    "arc",
+    "x402",
+    "neural-agents",
+    "usdc"
+  ],
+  "tokens": [
+    {
+      "chainId": 5042,
+      "address": "0x43D84EfE7174637cdA55Ae1560cd4BFf4BaAB490",
+      "name": "Murmur",
+      "symbol": "MURMUR",
+      "decimals": 18,
+      "logoURI": "https://flyx402.xyz/token/murmur-logo.png",
+      "tags": []
+    }
+  ]
+}

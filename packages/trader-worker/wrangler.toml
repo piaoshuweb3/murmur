@@ -1,0 +1,374 @@
+name = "murmur"
+main = "src/index.ts"
+compatibility_date = "2026-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Keep the workers.dev observation URL alive alongside the custom domains (24-48h canary window).
+workers_dev = true
+
+# ============================================================================
+# v1.4 SELF-HOSTING SAFE BASELINE (二次开发 · 安全审计整改版)
+# ----------------------------------------------------------------------------
+# This file ships the SAFE defaults from the security audit (F-1/F-2):
+#   · the agent economy runs the KEYLESS SIMULATOR (no mnemonic, no broadcast)
+#   · every real-money rail is OFF until YOU arm it explicitly, step by step
+#   · all upstream-owned bindings (domain route, D1 id, deployed contracts)
+#     are removed — you must plug in YOUR OWN resources (marked ①②③ below)
+# Arming sequence (do NOT skip steps): deploy → verify → set ADMIN_TOKEN (④)
+#   → create D1 (②) → optional: onchain + shadow → real spend (see §9 doc).
+# Secrets are NEVER written here — `wrangler secret put <NAME>` only.
+# ============================================================================
+
+# ① CUSTOM DOMAIN — FLYX402.XYZ（zone active 于本账户，DNS+SSL 由 Cloudflare 自动供给）。
+#    整站单地址绑定：apex + www 都路由到本 Worker（同源 UI+API）。回滚 = 注释掉本块再 deploy。
+routes = [
+  { pattern = "flyx402.xyz", custom_domain = true },
+  { pattern = "www.flyx402.xyz", custom_domain = true }
+]
+
+# ---------- Static frontend (Workers Assets — same-origin single-URL deployment) ----------
+# Serves packages/frontend/public straight from THIS worker: "/" → index.html, plus app.js /
+# styles.css / i18n-* / developers.html / community.html. Asset (GET/HEAD) requests are free and
+# never invoke the script; every other path (/api/*, /state, /arena, POSTs, …) runs the Worker,
+# whose router strips the same-origin "/api" prefix (see src/index.ts). One URL = UI + API, zero
+# CORS config, no separate Pages project. Rollback = delete this block and deploy the frontend
+# separately (packages/frontend: `wrangler pages deploy public`).
+[assets]
+directory = "../frontend/public"
+
+# Cron: observe Arc, update the market temperature and let the fly population react — every minute
+# (Cloudflare's minimum cron granularity). Each run reads whole-chain activity and advances the sim.
+[triggers]
+crons = ["* * * * *"]
+
+# ---------- Variables (non-sensitive, committed with the code) ----------
+# SAFE PHASE — the swarm runs fully keyless: the economy is the internal SIMULATED ledger, the
+# prediction market and arena are OFF, and ECONOMY_REAL_SPEND defaults to "false" in code (v1.4).
+# With NO mnemonic set, a fresh deployment can never move a single wei of real money.
+# Secrets (set with `wrangler secret put`, NEVER committed): see ④⑤ below.
+[vars]
+# ===== Arc chain =====
+CHAIN_ID = "5042"                             # 5042 = Arc mainnet · 5042002 = Arc testnet
+RPC_URL = "https://rpc.mainnet.arc.io"        # Arc mainnet public RPC (KEEP keyed/private endpoints
+                                              # out of this var — /state exposes it; use the
+                                              # ALCHEMY_ARC_RPC_URL *secret* for paid endpoints)
+
+# ===== Market temperature (Arc whole-chain activity) =====
+MARKET_SAMPLE_BLOCKS = "16"                   # recent blocks sampled per cron for tx/gas throughput
+MARKET_EWMA_ALPHA = "0.08"                    # baseline smoothing (slow ⇒ tracks the regime, not spikes)
+MARKET_GAIN = "3.0"                           # logistic sharpness ratio→temperature (calibrated on live Arc)
+REGIME_HOT = "0.66"                           # temperature ≥ this ⇒ HOT
+REGIME_COLD = "0.33"                          # temperature ≤ this ⇒ COLD
+
+# ===== Fly population =====
+POPULATION_SIZE = "24"                        # number of flies in the swarm (1–256)
+POPULATION_SEED_BASE = "42"                   # base seed; fly i uses seed = base + i*7919
+TICKS_PER_CRON = "6"                          # simulation sub-ticks per cron
+SIM_STEPS_PER_TICK = "500"                    # total LIF integration steps per cron, split across sub-ticks
+# Swarm sharding (see swarm.ts / shard.ts). "1" = the original single-DO swarm — every brain in FlyStateDO,
+# the FLY_SHARD binding inert (ZERO shards). "12" fans the HEAVY per-fly LIF advance out to 12 FlyShardDO
+# isolates (2 flies each at POPULATION_SIZE=24), each with its own 128 MB + CPU budget and its own SQLite.
+# Rollback = set this back to "1".
+SHARD_COUNT = "12"
+
+# ===== Visitor stimulus ("poke the swarm") + CORS (audit F-5/F-6 hardening) =====
+STIMULUS_COOLDOWN_SEC = "30"                  # one injection per visitor per N seconds
+# STIMULUS_ADMIN_ONLY = "true"                # recommended on PUBLIC self-hosts: POST /stimulus then
+#                                             # requires ADMIN_TOKEN (otherwise anonymous visitors can
+#                                             # shape the swarm's neural state — audit F-5). Default false.
+FRONTEND_ORIGIN = "*"                         # informational default; see CORS_ALLOW_ORIGINS below
+# CORS_ALLOW_ORIGINS = "https://www.your-domain.com,https://your-domain.com"
+#                                             # recommended: when set, ONLY these Origins get an
+#                                             # Access-Control-Allow-Origin header (audit F-6).
+#                                             # Unset = legacy behaviour (reflect any request Origin).
+
+# ===== Ultimate admin authority (终极管理权限) =====
+# The deployment's declared ULTIMATE-ADMIN wallet address. Exposed read-only via /state
+# (config.adminWallet) and shown as the "admin" row in the frontend economy panel with a one-click
+# explorer link — anyone can verify the declared authority on-chain. This is an IDENTITY/OWNERSHIP
+# declaration: it does NOT hold keys and never signs; the gas/signing facilitator remains the
+# HD-derived wallet from the ECONOMY_MNEMONIC secret. To transfer ultimate authority, change this
+# address and redeploy.
+ADMIN_WALLET = "0x10687368eF1be3f178de0fCCf5EdfF49e1C258B1"
+
+# ===== Agent economy (x402 micropayments between fly agents) =====
+# SAFE BASELINE (v1.4, audit F-1): the economy runs the keyless SIMULATED ledger — every wallet,
+# deal and price exists, but no chain call is ever made and no key is ever held.
+# ARMING (later, deliberately): set ECONOMY_FACILITATOR = "onchain" + provide ECONOMY_MNEMONIC (④),
+# keep ECONOMY_SHADOW = "true" first (sign + eth_call, zero broadcast), verify, and only then
+# explicitly set ECONOMY_REAL_SPEND = "true" (the code default is now "false" — nothing moves
+# without this line).
+ECONOMY_ENABLED = "true"                      # agent economy on/off (off ⇒ pure reactive population)
+ECONOMY_INITIAL_BALANCE = "6"                 # starting USDC per agent wallet (simulated ledger)
+ECONOMY_BASE_PRICE = "0.002"                  # base price of one good (USDC) before neural/market scaling
+ECONOMY_SOLVENCY_FLOOR = "0.5"                # simulated treasury tops an agent up to this when it runs dry
+ECONOMY_MAX_DEALS = "10"                      # per-CRON settlement budget, spread across the 6 sub-ticks
+ECONOMY_FACILITATOR = "simulated"             # "simulated" (SAFE; keyless ledger) | "onchain" (real EIP-3009; needs ④)
+
+# ===== Real-money (ONCHAIN) settlement rails — ALL INERT in the safe baseline =====
+# SECRETS — set with `wrangler secret put <NAME>`, NEVER written into this file:
+#   ECONOMY_MNEMONIC        one BIP-39 seed → HD-derives all agent wallets (m/44'/60'/0'/0/{id}) + gas wallet
+#   ECONOMY_FACILITATOR_PK  optional dedicated gas-wallet key (else the gas wallet is derived from the seed)
+#   ALCHEMY_ARC_RPC_URL     complete private Alchemy Arc mainnet HTTPS endpoint (paid RPC; NEVER put it
+#                           in RPC_URL above — /state publishes that one)
+#   ADMIN_TOKEN             ④ REQUIRED on any public deployment: locks POST /tick + /reset (+ /stimulus
+#                           when STIMULUS_ADMIN_ONLY="true") behind the x-admin-token header / ?token=
+# Rails (all committed vars are safe to publish):
+ECONOMY_REAL_SPEND = "false"                  # KILL SWITCH (code default "false"): flip to "true" ONLY after
+                                              # the shadow run is clean — this is the last arming step
+ECONOMY_SHADOW = "true"                       # "true" = sign + eth_call each transfer but broadcast nothing;
+                                              # set "false" only together with REAL_SPEND="true" when going live
+ECONOMY_DAILY_CAP = "20"                      # global real-spend ceiling per UTC day (USDC); 0 = no cap
+ECONOMY_PER_AGENT_DAILY_CAP = "2"             # per-agent real-spend ceiling per UTC day (USDC); 0 = no cap
+# ECONOMY_MAX_DEAL = "0.05"                   # facilitator hard per-deal ceiling (USDC)
+# ECONOMY_GAS_PRICE_GWEI = "20"               # pin relay gas (Arc launched ~20 gwei); omit = let viem estimate
+# ECONOMY_USDC_EIP712_NAME = "USDC"           # EIP-712 domain name (probe: name()="USDC"); tune if signatures revert
+# ECONOMY_USDC_EIP712_VERSION = "2"           # EIP-712 domain version (probe: version()="2")
+
+# ===== Settlement NETTING (ONCHAIN ONLY — gas amortisation) =====
+# Trades no longer broadcast one tx per micropay: each pair's signed net accumulates in the DO and is
+# flushed at most once per cron, only when |net| ≥ MIN_BROADCAST or the net has aged ≥ FLUSH_TICKS
+# sub-ticks. Reciprocal trades cancel (net=0 ⇒ zero tx), dust carries forward, and nets above
+# ECONOMY_MAX_DEAL split into chunks. The internal ledger/volume/caps move ONLY on a mined receipt,
+# so a failed flush never invents money. Inert in simulated mode.
+ECONOMY_NET_MIN_BROADCAST = "0.004"           # min |net| (USDC) before a pair is broadcast
+ECONOMY_NET_FLUSH_TICKS = "30"                # force-flush any nonzero pending net at least every N sub-ticks (0 = never force)
+
+# ===== Neural-receipt REGISTRY (ONCHAIN ONLY — trustless chain head) =====
+# ② YOUR OWN CONTRACT REQUIRED. Deploy contracts/NeuralReceiptRegistry.sol (see contracts/README.md)
+#    from YOUR wallet with YOUR facilitator as committer, then paste its address below. Deploying with
+#    the line commented is fully supported: the commit step is skipped entirely (zero behaviour change).
+ECONOMY_REGISTRY_ADDRESS = "0x87F6a942bb563dd7Bba4d3CdbD5d51477E71fc34"   # R3 本部署 NeuralReceiptRegistry（committer=facilitator，R4-0 接线 2026-09-23）
+
+# ===== Circle Facilitator Service (the OFFICIAL hosted x402 facilitator — src/circle.ts) =====
+# Circle's relayer screens both parties, submits the buyer's EIP-3009 USDC transfer and pays the
+# settlement gas. SAFE BASELINE: "off" (self-broadcast path, no external dependency). When you arm
+# onchain you may flip to "external" (Arc Pulse seller side only) — the keyless trial is rate-limited
+# per payTo and returns 403 registration_required once exhausted; for sustained volume add CIRCLE_API_KEY
+# (secret) so auth switches to Bearer. Rollback = back to "off" and redeploy.
+# FREE-TIER 64-VAR BUDGET: ECONOMY_CIRCLE_FACILITATOR / CIRCLE_FACILITATOR_URL / CIRCLE_MAX_TIMEOUT_SECONDS
+# are NOT pinned here — code defaults ("off" / https://api.circle.com / 12) are byte-identical to the
+# previous explicit pins (src/config.ts L695-698). Re-pin via --var only when deviating.
+# FREE-TIER 64-VAR BUDGET: ECONOMY_CIRCLE_FACILITATOR/CIRCLE_FACILITATOR_URL/CIRCLE_MAX_TIMEOUT_SECONDS
+# are NOT pinned here — their code defaults ("off" / https://api.circle.com / 12) are byte-identical
+# to the previous explicit pins (src/config.ts L695-698). Re-pin via --var only when deviating.
+# SECRET (optional) — set with `wrangler secret put CIRCLE_API_KEY`, NEVER written here.
+
+# ===== Prediction market (ONCHAIN — neural-staked temperature bets) =====
+# Each cron the swarm stakes real USDC on whether next tick's market temperature rises or falls; the
+# following cron resolves it parimutuel (strictly zero-sum) and folds the net PnL through the SAME
+# netting / EIP-3009 / registry path as every other settlement. SAFE BASELINE: "false" (audit F-1).
+PREDICT_ENABLED = "true"                      # 影子期开启：simulated 账本下蝇群以模拟 USDC 下注（不碰真钱，无 registry 时 commit 自动跳过/失败即 warn）；实盘仍需 onchain facilitator 军旗
+PREDICT_STAKE_USDC = "0.002"                  # base stake per bet (USDC), scaled by arousal (0.4 + 0.6·arousal)
+PREDICT_MAX_STAKE_USDC = "0.01"               # hard per-bet ceiling (USDC); each bet is also capped at balance/4
+PREDICT_FLAT_BAND = "0.008"                   # |Δtemperature| ≤ this ⇒ FLAT: full refund, no flows, not committed
+PREDICT_COMMIT = "true"                       # commit decisive resolutions to the on-chain NeuralReceiptRegistry
+
+# ===== Human-vs-swarm prediction ARENA (ONCHAIN — MURMUR-denominated, NON-CUSTODIAL) =====
+# Holders bet MURMUR on the SAME Arc-temperature move the fly swarm does. Bets are escrowed in a
+# deployed PredictionArena contract and paid out parimutuel BY the contract; the Worker is only the
+# authorized RESOLVER (its facilitator wallet calls openRound/resolve). ② YOUR OWN CONTRACT REQUIRED:
+# deploy contracts/PredictionArena.sol from YOUR account (resolver = YOUR facilitator), then set
+# ARENA_ADDRESS + ARENA_TOKEN and flip ARENA_ENABLED. Left OFF here — deploying with upstream's
+# contract addresses would make your Worker call contracts it has no authority over (audit F-2).
+ARENA_ENABLED = "true"                        # R4-1 开旗（2026-09-23）：读路径立即生效；开轮/结算写路径还需 onchain facilitator + REAL_SPEND（本地已武装，云端待用户 secret 布防）
+ARENA_ADDRESS = "0x0243F95C2654C888a36B7B0DE1D200AaF7C16B60"   # R3 本部署 PredictionArena (Arc mainnet 5042, resolver=facilitator)
+ARENA_TOKEN = "0x43D84EfE7174637cdA55Ae1560cd4BFf4BaAB490"     # R3 本部署 MURMUR（100% 供应在 ADMIN treasury，零流通时开轮空转无害）
+ARENA_ROUND_MIN = "60"                        # minutes per round (== the betting window); clamped 1..1440
+# FREE-TIER 64-VAR BUDGET: ARENA_FLAT_BAND / ARENA_STALE_GRACE_SEC not pinned — code defaults
+# ("0.008" via PREDICT_FLAT_BAND fallback / "259200"; src/config.ts L800-801) byte-identical. Re-pin via --var only.
+
+# ===== Paid data product resource (audit F-3 fix) =====
+# GET /signal/pulse + /signal/requirements advertise WHICH resource a buyer is paying for. v1.4 derives
+# it from the incoming request origin automatically (a self-host naturally advertises its own domain).
+# Set this only to override it explicitly:
+# SIGNAL_RESOURCE = "https://api.your-domain.com/signal/pulse"
+# SIGNAL_PAYTO — the revenue address for the paid signal (x402 seller side). sovereignty: ALWAYS set
+# this explicitly on a self-host — when unset it falls back to the HD-derived gas wallet from YOUR
+# mnemonic (still yours, but implicit). Explicit = every x402 buyer signature is validated against
+# exactly this address (auth.to !== payTo ⇒ rejected), so revenue can only ever land here.
+SIGNAL_PAYTO = "0x10687368eF1be3f178de0fCCf5EdfF49e1C258B1"
+
+# ===== Connectome sizing — 10x (10,800 neurons/fly): 1800 + 4000 + 4000 + 400 + 120×5 motor = 10,800 =====
+# DENSITY drops 0.02 → 0.002 to hold fan-in linear, so each brain fits 2 flies/shard under 128 MB and
+# ~1.4 MB serialised under the 2 MB value cap (hence SHARD_COUNT = 12 above). Rollback = SHARD_COUNT="1"
+# + the 1,080-neuron defaults below.
+BRAIN_N_SENSORY = "1800"
+BRAIN_N_INTER_L1 = "4000"
+BRAIN_N_INTER_L2 = "4000"
+BRAIN_N_MODULATORY = "400"
+BRAIN_N_MOTOR_PER_CHANNEL = "120"
+BRAIN_DENSITY = "0.002"
+
+# ===== Meme monitoring + external execution (二次开发 optional layer — SHIPPED OFF, zero behaviour change) =====
+# The meme channel is a parallel temperature input (multi-chain meme launch heat / volume spikes /
+# holder concentration / smart-money flow / social momentum); the execution layer turns the swarm's
+# intent read-out into third-party DEX trades behind HARD risk rails. Both default OFF and both are
+# fail-soft. ROLLOUT (from the 二次开发 doc): monitoring first, then shadow paper-trading, then — only
+# after a 24–48h clean shadow run with MAX_PER_TRADE_USDC=1–2 — consider flipping EXECUTION_REAL_SPEND.
+# SECRETS (wrangler secret put, NEVER here): SOLANA_PRIVATE_KEY, SOLANA_RPC_URL, JUPITER_API_KEY,
+# EVM_PRIVATE_KEY, BASE_RPC_URL, ETH_RPC_URL, ZEROX_API_KEY. The execution wallet MUST stay separate
+# from the internal x402 economy wallets (fund isolation).
+# FREE-TIER 64-VAR BUDGET: MEME_ENABLED/MEME_WEIGHT not pinned — code defaults (false / 0.35)
+# byte-identical to previous pins (src/config.ts L136-137). Re-pin via --var when arming the meme channel.
+# MEME_RUG_CONCENTRATION = "0.45"             # holder concentration ⇒ RUG_RISK override
+# FREE-TIER 64-VAR BUDGET: MEME_ENABLED / MEME_WEIGHT not pinned — code defaults (false / 0.35)
+# byte-identical to previous pins (src/config.ts L136-137). Re-pin via --var when arming meme channel.
+# MEME_RUG_LIQUIDITY = "0.3"                  # liquidity health floor ⇒ RUG_RISK override
+
+# --- P0-1 data sources (default = null provider: the shipped v0 behaviour, byte-for-byte) ---
+# Solana: "helius" | "bitquery" | "dexscreener" (the spec's Helius/Bitquery 二选一; dexscreener is keyless)
+# Base/ETH: "dexscreener" (aggregated pairs). Watchlists bound each source — a curated list of 5–20
+# candidate mints per chain keeps the free tiers comfortably inside their rate limits.
+# SECRETS (wrangler secret put): HELIUS_API_KEY, BITQUERY_API_KEY
+# MEME_SOURCE_SOLANA = "dexscreener"
+# MEME_SOURCE_BASE = "dexscreener"
+# MEME_SOURCE_ETH = "dexscreener"
+# Watchlists below = the VERIFIED triple-chain default set (deep pools + canonical contracts + real
+# volume, screened 2026-09-20 via pool-age & real-volume checks against same-ticker impostors).
+# Uncomment all six lines at runbook stage §6.1 [E1] — copy-paste ready:
+# MEME_WATCHLIST_SOLANA = "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263,EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm,7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr"   # BONK / WIF / POPCAT
+# MEME_WATCHLIST_BASE = "0x532f27101965dd16442E59d40670FaF5eBB142E4,0x0b3e328455c4059EEb9e3f84b5543F74E24e7E1b,0x4ed4E862860beD51a9570b96d89aF5E1B0Efefed,0xAC1Bd2486aAf3B5C0fc3Fd868558b082a531B2B4"   # BRETT / VIRTUAL / DEGEN / TOSHI
+# MEME_WATCHLIST_ETH = "0x6982508145454Ce325dDbE47a25d4ec3d2311933,0xaaeE1A9723aaDB7afA2810263653A34bA2C21C7a,0xE0f63A424a4439cBE457D80E4f4b51aD25b2c56C"   # PEPE / MOG (canonical 2023 pool) / SPX6900
+# Adding a token? Screen first: ① pool age ≈ the token's known launch date  ② real (non-zero) 1h/5m
+# volume matching the liquidity scale. Same-ticker impostors with fresh 2026 pools and zero volume exist.
+# MEME_HELIUS_PROGRAMS = "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8,pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA"
+# MEME_AVG_TRADE_USD = "250"                  # signature-rate → USD volume proxy (P1-3 replaces it with real marks)
+
+# --- P2-1 sell/exit rails (exits run FIRST and are NEVER throttled — no budget/cooldown/caps) ---
+# EXIT_STOP_LOSS_PCT = "0.2"                  # hard stop: −20% from entry
+# EXIT_TAKE_PROFIT_PCT = "0.5"                # take profit: +50%
+# EXIT_TRAILING_STOP_PCT = "0.15"             # trail 15% off the peak (peak-gated: needs to have been above water)
+# EXIT_MAX_HOLD_MIN = "360"                   # time exit after 6h
+# EXIT_RUG_LIQUIDITY_USD = "5000"             # liquidity collapse ⇒ immediate exit
+# EXIT_MAX_PER_TICK = "3"                     # max sells minted per cron
+# EXIT_SLIPPAGE_BPS = "300"                   # wider than buys — meme books are thin
+# EXIT_TTL_SECONDS = "60"
+
+# EXECUTION_SIGNING_ENABLED = "true"          # P0-5 arming flag — the 4th live flag; WITHOUT it the live path
+# FREE-TIER 64-VAR BUDGET: the nine EXECUTION_* / MAX_* / MIN_* / TRADE_* pins removed — code defaults
+# (EXECUTION_ENABLED=false, EXECUTION_REAL_SPEND=false kill switches are CODE defaults — the execution
+# adapter can never broadcast a swap unless BOTH are re-pinned "true"; shadow=true / 50 / 5 / 10 /
+# 10000 / 0.35 / 300 per src/config.ts L165-175).
+                                              # throws before any signature exists (quote+build stay provable)
+# MIN_CONFIDENCE = "0.45"                     # min intent confidence
+# MAX_SLIPPAGE_BPS = "150"                    # default slippage cap (1.5%)
+
+# ============================================================================================
+# 二次开发合并专项（upstream 80 commits）新增层 —— 按自主权红线纪律移植：
+#   · 上游 wrangler.toml 的 LIVE 军旗（WAR_ENABLED=true/WAR_BOOTSTRAP=true/ECONOMY_SHADOW=false）
+#     及其自部署合约地址（MANIFEST/LINEAGE/WAR）一律【不照抄】——全部注释化，启用前自行部署。
+#   · 纯模拟层（文化/制度/纪元/冲突）显式开启：零资金路径，编年史/社交剧情全量激活。
+#   · 一切收款地址默认指向部署者本人钱包：0x10687368eF1be3f178de0fCCf5EdfF49e1C258B1
+#   · ⚠ 本块必须位于任何 [段头] 之前：曾因落在 [observability] 之后被 wrangler 静默忽略，
+#     导致 PREDICT 之外的七个开关全部回退到代码默认值（2026-09-22 修复）。
+# ============================================================================================
+
+# --- ⑤⑥⑦ 文化 / 制度 / 纪元层（纯 read-out / 模拟账本，不碰链不碰钱）---
+# FREE-TIER 64-VAR BUDGET（2026-09-23 瘦身 73→56）：CULTURE / INSTITUTIONS / EPOCHS 三旗不再显式
+# pin——代码默认即 true（src/config.ts L824/832/842），与原显式值逐字节一致；上游默认漂移需重新 pin。
+# CREDIT_CAP_BASE_USDC = "0.05"    # ⑥ 开启 INSTITUTIONS 后生效：IOU 基础信用线
+# IOU_RATE_PER_10TICK = "0.002"    # ⑥ 每 10 sub-tick 利息（0.2%）
+
+# --- 有机冲突层（纯社交模拟，不碰钱）---
+CONFLICT_ENABLED = "true"          # 恩怨簿/嫉妒/禁运/袭击剧情（零资金路径）；回滚 = "false"
+# CONFLICT_RIVAL_STEP = "0.10"
+# CONFLICT_ENVY_STEP = "0.14"
+# CONFLICT_EMBARGO_STEP = "0.08"
+# CONFLICT_RAID_STEP = "0.40"
+# CONFLICT_RAID_PROB = "0.02"
+
+# --- 自主进化层（繁殖费收款人 = 自己的钱包；启用需同时布防 onchain 军旗）---
+EVOLUTION_ENABLED = "false"
+# EVOLUTION_TREASURY = "0x10687368eF1be3f178de0fCCf5EdfF49e1C258B1"
+# ↑ 红线：上游示例 = 其部署者钱包 0x307D…3a0d（已剔除）。这里预填【本部署的终极管理钱包】，
+#   启用 EVOLUTION 时取消注释即收款归自己。费率/上限等其余 EVOLUTION_* 参见 src/config.ts。
+# POP_LIVE_RETIRE 默认 true（代码内），死亡腾笼复用 id；回滚 = 显式 "false"。
+
+# --- 领土/战争/税收层（真实 USDC 托管——启用前必须自行部署 WarCoffer 并全链路彩排）---
+WAR_ENABLED = "false"                         # R4-2 待用户放行（接线先 行，旗后开）
+WAR_ADDRESS = "0x37a630e56bEa9B9214A638D31F761e9489C9f9C0"    # R3 本部署 WarCoffer（usdc=原生 precompile, 硬顶50 immutable, grace 3天）
+WAR_TREASURY = "0x10687368eF1be3f178de0fCCf5EdfF49e1C258B1"   # 房屋金库背后的钱包（自己的 ADMIN，无钥主权）
+WAR_MAX_ESCROW_USDC = "50"                     # 合约层硬顶（immutable），Worker 侧同步值
+# WAR_TAX_PCT = "0.01" / WAR_TAX_DEST = "coffer" / WAR_BOOTSTRAP = "false"
+# ↑ 上游生产配置把 WAR_BOOTSTRAP=true（真实 USDC 冷启动注资）写进默认——本部署永不默认开启。
+#
+# --- R2 测试网彩排证据（2026-09-23 全绿 71/71，仅记录不接线；主网地址在 R3 后替换此处）---
+# 复跑: RPC_URL=https://rpc.testnet.arc.io CHAIN_ID=5042002 node scripts/r2-rehearsal.mjs
+#   MockUSDC                0xc818439a168ac2e8591caf79077bc7f8c16bb8b3   (仅测试网彩排资产)
+#   MurmurToken(生产)        0x6cd746c1be260056761d811dec3914cefd9460dd   (treasury=ADMIN, 10亿全额)
+#   NeuralReceiptRegistry   0x23ec3868929e972e4440dd04039bbee709efae4d
+#   NeuralManifestRegistry  0xaa512cef0493d150c910bc0d2e4ad8b16e3cb392
+#   ConnectomeLineage       0x674a2752fcca6b6781f338bb9b09daea413c41c7
+#   WarCoffer(生产参数)      0x64b03c71ee8732dd4392c5a5fbd007d5f9eaf2b2   (硬顶50 USDC immutable)
+#   PredictionArena(生产)    0xe3b7d9c31f89a9593a8eecac4661eb25c235d13d
+# 证据: docs/murmur-R2-测试网资金流向审计报告.md · 原生USDC precompile(0x3600…0000) EIP-3009 实测可写
+
+# --- R3 主网部署证据（2026-09-23 全绿 29/29 断言，已上链待接线；四资金旗仍全关）---
+# 复跑: node scripts/r3-mainnet-deploy.mjs（断点续跑：已上链合约只验不重部署）
+#   MurmurToken             0x43D84EfE7174637cdA55Ae1560cd4BFf4BaAB490  (treasury=ADMIN, 10亿一次性铸后固化)
+#   NeuralReceiptRegistry   0x87F6a942bb563dd7Bba4d3CdbD5d51477E71fc34  (committer=facilitator)
+#   NeuralManifestRegistry  0x6caCEd7513b6E0b5B2c0CCD669c8A9dE6a0ce20e  (生产脑 commit 0x403551bb…f6efc02 已锚定)
+#   ConnectomeLineage       0xCbe979EE7ccB54823e43Df0B3D815f10E8eeaB07  (committer=facilitator)
+#   WarCoffer               0x37a630e56bEa9B9214A638D31F761e9489C9f9C0  (usdc=0x3600…0000 原生precompile, 硬顶50 immutable, grace 3天)
+#   PredictionArena         0x0243F95C2654C888a36B7B0DE1D200AaF7C16B60  (token=本部署MURMUR, resolver=facilitator)
+#   facilitator             0x20c54D8Fa205af293181833b46494d97d54753f3  (gas payer + 全部 RESOLVER/COMMITTER)
+# 证据: docs/murmur-R3-主网部署报告.md · scripts/r3-run-log.json · gas 0.0567 USDC（余额 4.97）· PUSH20 黑名单零命中
+
+# --- 链上锚点（manifest 血统证明 / 繁殖市场；R4-0 已接本部署合约，资金零托管）---
+MANIFEST_REGISTRY_ADDRESS = "0x6caCEd7513b6E0b5B2c0CCD669c8A9dE6a0ce20e"   # R3 本部署（生产脑 0x403551bb…f6efc02 已锚定）
+LINEAGE_ADDRESS = "0xCbe979EE7ccB54823e43Df0B3D815f10E8eeaB07"             # R3 本部署（commitCount=0 全新）
+# 部署自己的合约：npm run deploy:manifest / deploy:lineage（详见 docs/murmur-上云部署手册 §6）
+
+# --- 社区治理页（token-gated 论坛；D1 + 只读链上 balanceOf，零资金路径）---
+COMMUNITY_ENABLED = "false"                    # R4-4 待用户放行（只读门禁，零资金路径）
+COMMUNITY_TOKEN = "0x43D84EfE7174637cdA55Ae1560cd4BFf4BaAB490"   # R3 本部署 MURMUR（门禁只读 balanceOf）
+
+# --- P1 同步层（2026-09-24，全部默认关旗；逐个开旗，OFF ⇒ 字节级不变）---
+# ⚠ FREE-TIER 64-VAR BUDGET（2026-09-24 瘦身 72→59 部署修复）：Workers Free 上限 64 vars+secrets，
+#   13 个 P1 变量不再显式 pin——代码默认值与原显式值逐字节一致（src/config.ts L856-891）：
+#     BOURSE_ENABLED=false / BOURSE_TOKEN=本部署 MURMUR 0x43D8…B490 / BOURSE_TREASURY=ADMIN
+#     BOURSE_WHALE_MIN_MURMUR=1000000 / BOURSE_LOOKBACK_BLOCKS=2000
+#     TOKEN_STIMULUS_ENABLED=false / TOKEN_STIMULUS_CAP=0.35 / RELIGION_ENABLED=false
+#     POET_ENABLED=false / POET_EVERY_TICKS=30 / SOCIAL_STIMULUS_ENABLED=false
+#     SOCIAL_STIMULUS_CAP=0.3 / AGES_FAST_CLOCK=false
+#   放行命令（runbook §4）：npx wrangler deploy --var BOURSE_ENABLED:true …（旗位必须每次 deploy 重带，
+#   否则回退代码默认 false=安全熄火；toml 保持零旗基线）。全六旗终态 62/64（含 2026-09-24 二次裁 ARENA_*）。
+
+# ---------- Durable Object: population + market state ----------
+[[durable_objects.bindings]]
+name = "FLY_STATE"
+class_name = "FlyStateDO"
+
+# Sharded-swarm backend: the coordinator (FlyStateDO) fans the heavy per-fly advance out to N of these,
+# one contiguous slice of flies each, ONLY when SHARD_COUNT > 1 (see swarm.ts). With the default
+# SHARD_COUNT = "1" this binding is inert — no shard is ever created and the swarm runs in FlyStateDO.
+[[durable_objects.bindings]]
+name = "FLY_SHARD"
+class_name = "FlyShardDO"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["FlyStateDO"]
+
+# v2 registers the FlyShardDO SQLite class. With SHARD_COUNT = "12" the coordinator fans out to 12 shards
+# ("fly-shard-0".."fly-shard-11"), which spring up on demand on the first cron after deploy. At SHARD_COUNT
+# = "1" this class stays uninstantiated, so the migration is inert for a single-DO configuration.
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["FlyShardDO"]
+
+# ---------- D1 database: long-term archival of one row per cron tick ----------
+# ② YOUR OWN DATABASE REQUIRED (audit F-2: the upstream database id was removed):
+#    npx wrangler d1 create murmur-db                 → paste the printed database_id below
+#    npx wrangler d1 execute murmur-db --remote --file=./schema.sql
+# (the DO also runs CREATE TABLE IF NOT EXISTS lazily before its first insert, so this is belt-and-braces).
+[[d1_databases]]
+binding = "DB"
+database_name = "murmur-db"
+database_id = "05262000-2ae1-4c8e-bdf5-c119281ef72e"   # C0 云部署接线（murmur-db, 2026-09-23）
+
+# ---------- Observability ----------
+[observability]
+enabled = true
+head_sampling_rate = 1

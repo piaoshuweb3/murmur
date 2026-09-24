@@ -1,0 +1,733 @@
+{
+  "startedAt": "2026-09-22T17:58:18.844Z",
+  "chainId": 5042002,
+  "rpc": "https://rpc.testnet.arc.io",
+  "phase": "R2-testnet",
+  "deployments": {
+    "usdc": {
+      "address": "0xc818439a168ac2e8591caf79077bc7f8c16bb8b3",
+      "txHash": "0x1399751a7f15bf7a74879302c0915a1055a15bbbe9e4b890da9669fd81391253",
+      "gasUsed": "704456"
+    },
+    "murmurProd": {
+      "address": "0x6cd746c1be260056761d811dec3914cefd9460dd",
+      "txHash": "0x3383447ac5c213ff571d893464fc76c42aab28bbbbe002586b62331c036e94c8",
+      "gasUsed": "399683"
+    },
+    "murmurCirc": {
+      "address": "0x4d6b4298d28c237df1ef543d572350be02a3e747",
+      "txHash": "0x1d5a83979809bde147619eb3e415e06403a7124edcc94f4833d741220fde79d4",
+      "gasUsed": "399683"
+    },
+    "receipt": {
+      "address": "0x23ec3868929e972e4440dd04039bbee709efae4d",
+      "txHash": "0x24f31332409bc9c04709604945daba8cf80b3d58445a31b96c8d78b8810cf363",
+      "gasUsed": "336909"
+    },
+    "manifest": {
+      "address": "0xaa512cef0493d150c910bc0d2e4ad8b16e3cb392",
+      "txHash": "0x60509d61ecbb8d0fa0f0f7b1f3653892be73cf88895144494dae7e1f66f86226",
+      "gasUsed": "276457"
+    },
+    "lineage": {
+      "address": "0x674a2752fcca6b6781f338bb9b09daea413c41c7",
+      "txHash": "0xe76b21fcf80aa35cbc78ff8874fe40b469315ba3123457256409bda4fac491b3",
+      "gasUsed": "555787"
+    },
+    "coffer": {
+      "address": "0x64b03c71ee8732dd4392c5a5fbd007d5f9eaf2b2",
+      "txHash": "0xb757f132b0006485f611dba5db4460dc6560111c6f12d624de3890ae22f27760",
+      "gasUsed": "1014680"
+    },
+    "cofferStale": {
+      "address": "0x0ae99f09d2645ccd2fe34e2a29d1ce64af915e6c",
+      "txHash": "0x3198795d62ff03b46cefda34905b964c1ae4baaf1277649f0dfa3669a5f6a922",
+      "gasUsed": "1014656"
+    },
+    "arena": {
+      "address": "0xe3b7d9c31f89a9593a8eecac4661eb25c235d13d",
+      "txHash": "0x6851e676396a5bd0e5c7b2ae1e9edf17f971a17ba05b3e23478d60fac90a5167",
+      "gasUsed": "1248534"
+    },
+    "arenaStale": {
+      "address": "0xba4adacc3c72069f4a35ebaaeb2fe30ecb8ae21f",
+      "txHash": "0x61dff9cc14e99bb08e80576f0bac3f6d9070d41f52364c4ada347a7474a3936e",
+      "gasUsed": "1248510"
+    }
+  },
+  "asserts": [
+    {
+      "ok": true,
+      "label": "chainId=5042002（Arc testnet）",
+      "detail": "got 5042002"
+    },
+    {
+      "ok": true,
+      "label": "RESOLVER USDC(mock) 余额=55",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "label": "MurmurToken(生产) totalSupply=10亿",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "label": "MURMUR 生产实例全额铸给 ADMIN(=TREASURY)",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "label": "WarCoffer.resolver=RESOLVER",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "label": "WarCoffer.maxEscrow=50 USDC(immutable硬顶)",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "label": "WarCoffer 生产实例 staleGrace=3天",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "label": "PredictionArena.resolver=RESOLVER",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "label": "PredictionArena.token=流通副本MURMUR",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "label": "ConnectomeLineage.committer=RESOLVER",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "label": "MurmurToken ABI 无任何特权函数（mint/pause/owner/upgrade…）",
+      "detail": "clean"
+    },
+    {
+      "ok": true,
+      "label": "路人无法动 ADMIN 余额（无签名无授权）",
+      "detail": "reverted as expected: allowance"
+    },
+    {
+      "ok": true,
+      "label": "流通副本：BETTOR_A 真实签名发钞 20,000 MURMUR → B",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "label": "NeuralReceiptRegistry chainHead 前进至 H1",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "label": "断链 commit 被拒（prevHead 不匹配）",
+      "detail": "reverted but WITHOUT marker prev: The contract function \"commit\" reverted."
+    },
+    {
+      "ok": true,
+      "label": "NeuralManifestRegistry latestHash 落链",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "label": "血统祖先链可查：G0 有 2 子",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "label": "G0 breeder=BETTOR_A（版税收款人从链上读出）",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "label": "世代跳变被拒（BadGeneration）",
+      "detail": "reverted but WITHOUT marker generation: The contract function \"commit\" reverted."
+    },
+    {
+      "ok": true,
+      "label": "繁殖费 1.000000 USDC 确切落 TREASURY(ADMIN)",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "label": "版税 0.500000 USDC 确切落 breeder(G0)=BETTOR_A（净值：先付1.0费后收0.5）",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "label": "ConnectomeLineage 全程零资金（纯承诺账本）",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "label": "原生USDC写路径①：真实 transfer DEPLOYER→A 成功",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "label": "原生USDC写路径②：EIP-3009 结算 0.3 USDC → ADMIN 成功",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "label": "WarCoffer 实收 50 USDC（==硬顶）",
+      "detail": "50.000000"
+    },
+    {
+      "ok": true,
+      "label": "守恒 ·存入后",
+      "detail": "Σ金库+税袋+在战池=50.000000 == escrow=50.000000"
+    },
+    {
+      "ok": true,
+      "label": "托管实币==账面 ·存入后",
+      "detail": "balance=50.000000"
+    },
+    {
+      "ok": true,
+      "label": "超硬顶 deposit 被拒（EscrowCap 50 USDC 不可突破）",
+      "detail": "reverted but WITHOUT marker cap: The contract function \"deposit\" reverted."
+    },
+    {
+      "ok": true,
+      "label": "declareWar 双方各 escrow 5 USDC（pot=10）",
+      "detail": "pot=10.000000"
+    },
+    {
+      "ok": true,
+      "label": "战力在 declare 时上链固化（resolve 时 resolver 无法干预）",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "label": "非 resolver declareWar 被拒",
+      "detail": "reverted but WITHOUT marker resolver: The contract function \"declareWar\" reverted."
+    },
+    {
+      "ok": true,
+      "label": "attacker==defender 被拒",
+      "detail": "reverted as expected: war"
+    },
+    {
+      "ok": true,
+      "label": "守恒 ·stale实例存入后",
+      "detail": "Σ金库+税袋+在战池=2.000000 == escrow=2.000000"
+    },
+    {
+      "ok": true,
+      "label": "托管实币==账面 ·stale实例存入后",
+      "detail": "balance=2.000000"
+    },
+    {
+      "ok": true,
+      "label": "Round#1 池账正确",
+      "detail": "up=12000.000000000000000000 down=8000.000000000000000000"
+    },
+    {
+      "ok": true,
+      "label": "竞技场托管=全部下注（20,000 MURMUR）",
+      "detail": "20000.000000000000000000"
+    },
+    {
+      "ok": true,
+      "label": "同轮反向押注被拒（SideTaken）",
+      "detail": "reverted but WITHOUT marker side: The contract function \"bet\" reverted."
+    },
+    {
+      "ok": true,
+      "label": "零注被拒",
+      "detail": "reverted but WITHOUT marker zero: The contract function \"bet\" reverted."
+    },
+    {
+      "ok": true,
+      "label": "注期内 resolve 被拒（BettingClosed）",
+      "detail": "reverted but WITHOUT marker closed: The contract function \"resolve\" reverted."
+    },
+    {
+      "ok": true,
+      "label": "确定性胜者本地重算==合约裁定（trustless 可复算）",
+      "detail": "roll=186 winner=ATTACKER"
+    },
+    {
+      "ok": true,
+      "label": "守恒 ·resolve后",
+      "detail": "Σ金库+税袋+在战池=50.000000 == escrow=50.000000"
+    },
+    {
+      "ok": true,
+      "label": "托管实币==账面 ·resolve后",
+      "detail": "balance=50.000000"
+    },
+    {
+      "ok": true,
+      "label": "胜者金库恰好多 10 USDC（净赢一个 stake）",
+      "detail": "A=30.000000 B=20.000000"
+    },
+    {
+      "ok": true,
+      "label": "levyTax 1 USDC 入 commonsPurse",
+      "detail": "1.000000"
+    },
+    {
+      "ok": true,
+      "label": "守恒 ·levy后",
+      "detail": "Σ金库+税袋+在战池=50.000000 == escrow=50.000000"
+    },
+    {
+      "ok": true,
+      "label": "托管实币==账面 ·levy后",
+      "detail": "balance=50.000000"
+    },
+    {
+      "ok": true,
+      "label": "非 resolver sweepTo 被拒",
+      "detail": "reverted but WITHOUT marker resolver: The contract function \"sweepTo\" reverted."
+    },
+    {
+      "ok": true,
+      "label": "sweep 后 purse 归零（税留在自主金库体系内）",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "label": "守恒 ·sweep后",
+      "detail": "Σ金库+税袋+在战池=50.000000 == escrow=50.000000"
+    },
+    {
+      "ok": true,
+      "label": "托管实币==账面 ·sweep后",
+      "detail": "balance=50.000000"
+    },
+    {
+      "ok": true,
+      "label": "守恒 ·stale退款后",
+      "detail": "Σ金库+税袋+在战池=2.000000 == escrow=2.000000"
+    },
+    {
+      "ok": true,
+      "label": "托管实币==账面 ·stale退款后",
+      "detail": "balance=2.000000"
+    },
+    {
+      "ok": true,
+      "label": "stale 战双方全额退款=各自拿回本方 stake（无 resolver 也能解锁托管）",
+      "detail": "A=1.000000 B=1.000000"
+    },
+    {
+      "ok": true,
+      "label": "生产实例全程托管实币 50 未变（只有存入、无外部流出）",
+      "detail": "50.000000"
+    },
+    {
+      "ok": true,
+      "label": "Round#1 判定 UP（delta=+0.05 > band 0.008）",
+      "detail": "outcome=1"
+    },
+    {
+      "ok": true,
+      "label": "UP 赢家派彩=12k+全额败池=20,000（零抽水）",
+      "detail": "20000.000000000000000000"
+    },
+    {
+      "ok": true,
+      "label": "Round#1 结清后托管=Round#2 在注 1,000（20000进→20000出+在注，派彩零泄漏）",
+      "detail": "1000.000000000000000000"
+    },
+    {
+      "ok": true,
+      "label": "平价零和：resolver/ADMIN 未从竞技场拿走一分钱",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "label": "FLAT 轮全额退款 1,000 MURMUR",
+      "detail": "1000.000000000000000000"
+    },
+    {
+      "ok": true,
+      "label": "stale 轮全额退款 500 MURMUR（任何人可解锁）",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "label": "竞技场最终托管归零（生产+stale 实例，用户资金无沉淀）",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "label": "流通 MURMUR 总量守恒（A+B=10亿，托管零沉淀）",
+      "detail": "A=999988000.000000000000000000 B=12000.000000000000000000"
+    },
+    {
+      "ok": true,
+      "label": "EIP-3009 AuthorizationUsed 事件落链（自持协议结算痕迹）",
+      "detail": "count=2（客户端按 topic0 复核）"
+    },
+    {
+      "ok": true,
+      "label": "全链账本：不存在任何第四方收付款地址",
+      "detail": "19 笔转账全部白名单"
+    },
+    {
+      "ok": true,
+      "label": "ADMIN 全程零流出（测试网上根本没有 ADMIN 钥——无钥主权的最强证明）",
+      "detail": "0 笔流出"
+    },
+    {
+      "ok": true,
+      "label": "WarCoffer（生产+stale）托管零流出（存入后无任何 USDC 离开战库）",
+      "detail": "0 笔流出"
+    },
+    {
+      "ok": true,
+      "label": "竞技场付款对象 100% 是下注者本人",
+      "detail": "3 笔派出"
+    },
+    {
+      "ok": true,
+      "label": "TREASURY(ADMIN) 收款路径存在（铸币+繁殖费）",
+      "detail": "USDC(mock):1.000000 · MURMUR(prod):1000000000.000000000000000000"
+    },
+    {
+      "ok": true,
+      "label": "路人零收款（负向验证）",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "label": "USDC(mock) 总量守恒：Σ参与者+Σ托管==总铸币 60.000000",
+      "detail": "60.000000/60.000000"
+    },
+    {
+      "ok": true,
+      "label": "全合约字节码 PUSH20 走查：零未知/零上游地址嵌入",
+      "detail": "候选 4 个，全部 ∈ 白名单或无链上代码的随机数据"
+    }
+  ],
+  "ledger": [
+    {
+      "token": "USDC(mock)",
+      "from": "0x0000000000000000000000000000000000000000",
+      "to": "0x1e8200e31078005bbcb74a9fe955187a35c34e87",
+      "value": "55000000",
+      "txHash": "0x6b24b69831e2fdba3de3e7d60e9061ad828e479538564b6b8eac108471dc2d39",
+      "logIndex": 19,
+      "block": 63459461,
+      "fromRole": "零地址(仅铸币)",
+      "toRole": "RESOLVER(facilitator,mnemonic派生idx2000000)",
+      "usdc": "55.000000"
+    },
+    {
+      "token": "USDC(mock)",
+      "from": "0x0000000000000000000000000000000000000000",
+      "to": "0xbb8ba80852efad555ac6b324a57255db94247a74",
+      "value": "3000000",
+      "txHash": "0xafa22029f470f6293c433c18f9ee980089dc5d350732b32bdc1506bd60af95fb",
+      "logIndex": 31,
+      "block": 63459470,
+      "fromRole": "零地址(仅铸币)",
+      "toRole": "BETTOR_A",
+      "usdc": "3.000000"
+    },
+    {
+      "token": "USDC(mock)",
+      "from": "0x0000000000000000000000000000000000000000",
+      "to": "0xd0d1e7416e88d42300e8277bc3107cfd73e3cfaf",
+      "value": "2000000",
+      "txHash": "0x3b3d3572fa0b139749d8ffb49ed50dd931aa0735c31327323895a97c414c7c7d",
+      "logIndex": 14,
+      "block": 63459472,
+      "fromRole": "零地址(仅铸币)",
+      "toRole": "BETTOR_B",
+      "usdc": "2.000000"
+    },
+    {
+      "token": "USDC(mock)",
+      "from": "0xbb8ba80852efad555ac6b324a57255db94247a74",
+      "to": "0x10687368ef1be3f178de0fccf5edff49e1c258b1",
+      "value": "1000000",
+      "txHash": "0x59df203e9f5b33abdde66c100c642c698e43eb362162d663f206ed2bb5d7170f",
+      "logIndex": 21,
+      "block": 63459622,
+      "fromRole": "BETTOR_A",
+      "toRole": "TREASURY=ADMIN(无钥,只收钱)",
+      "usdc": "1.000000"
+    },
+    {
+      "token": "USDC(mock)",
+      "from": "0xd0d1e7416e88d42300e8277bc3107cfd73e3cfaf",
+      "to": "0xbb8ba80852efad555ac6b324a57255db94247a74",
+      "value": "500000",
+      "txHash": "0x85f185b7f9a042e1e62af62418e7eeac8e31e3bde19f5bec7e52eaf59b0913a9",
+      "logIndex": 30,
+      "block": 63459626,
+      "fromRole": "BETTOR_B",
+      "toRole": "BETTOR_A",
+      "usdc": "0.500000"
+    },
+    {
+      "token": "USDC(mock)",
+      "from": "0x1e8200e31078005bbcb74a9fe955187a35c34e87",
+      "to": "0x64b03c71ee8732dd4392c5a5fbd007d5f9eaf2b2",
+      "value": "25000000",
+      "txHash": "0x4b97b626225fc0d3e8c5b4063460929d391e718a419eed45c7d35692000c7b4e",
+      "logIndex": 29,
+      "block": 63459644,
+      "fromRole": "RESOLVER(facilitator,mnemonic派生idx2000000)",
+      "toRole": "WarCoffer(战争托管)",
+      "usdc": "25.000000"
+    },
+    {
+      "token": "USDC(mock)",
+      "from": "0x1e8200e31078005bbcb74a9fe955187a35c34e87",
+      "to": "0x64b03c71ee8732dd4392c5a5fbd007d5f9eaf2b2",
+      "value": "25000000",
+      "txHash": "0x070e6502318a55aa7f9a399b55e7d4e63895422c5379427e89d4fac648148ce4",
+      "logIndex": 30,
+      "block": 63459648,
+      "fromRole": "RESOLVER(facilitator,mnemonic派生idx2000000)",
+      "toRole": "WarCoffer(战争托管)",
+      "usdc": "25.000000"
+    },
+    {
+      "token": "USDC(mock)",
+      "from": "0x1e8200e31078005bbcb74a9fe955187a35c34e87",
+      "to": "0x0ae99f09d2645ccd2fe34e2a29d1ce64af915e6c",
+      "value": "1000000",
+      "txHash": "0x9b86d28d80f825f13eab782b2c3cc62dfc339b421cdbb5e388315c6e301756d4",
+      "logIndex": 7,
+      "block": 63459659,
+      "fromRole": "RESOLVER(facilitator,mnemonic派生idx2000000)",
+      "toRole": "WarCoffer-stale(演练)",
+      "usdc": "1.000000"
+    },
+    {
+      "token": "USDC(mock)",
+      "from": "0x1e8200e31078005bbcb74a9fe955187a35c34e87",
+      "to": "0x0ae99f09d2645ccd2fe34e2a29d1ce64af915e6c",
+      "value": "1000000",
+      "txHash": "0xcd769fd5b5795a0cc6dcff7c9dd029e6d2c1b2b64cc3902eb8051769aedecf82",
+      "logIndex": 27,
+      "block": 63459668,
+      "fromRole": "RESOLVER(facilitator,mnemonic派生idx2000000)",
+      "toRole": "WarCoffer-stale(演练)",
+      "usdc": "1.000000"
+    },
+    {
+      "token": "MURMUR(prod)",
+      "from": "0x0000000000000000000000000000000000000000",
+      "to": "0x10687368ef1be3f178de0fccf5edff49e1c258b1",
+      "value": "1000000000000000000000000000",
+      "txHash": "0x3383447ac5c213ff571d893464fc76c42aab28bbbbe002586b62331c036e94c8",
+      "logIndex": 15,
+      "block": 63459483,
+      "fromRole": "零地址(仅铸币)",
+      "toRole": "TREASURY=ADMIN(无钥,只收钱)",
+      "usdc": "1000000000.000000000000000000"
+    },
+    {
+      "token": "MURMUR(circ)",
+      "from": "0x0000000000000000000000000000000000000000",
+      "to": "0xbb8ba80852efad555ac6b324a57255db94247a74",
+      "value": "1000000000000000000000000000",
+      "txHash": "0x1d5a83979809bde147619eb3e415e06403a7124edcc94f4833d741220fde79d4",
+      "logIndex": 14,
+      "block": 63459493,
+      "fromRole": "零地址(仅铸币)",
+      "toRole": "BETTOR_A",
+      "usdc": "1000000000.000000000000000000"
+    },
+    {
+      "token": "MURMUR(circ)",
+      "from": "0xbb8ba80852efad555ac6b324a57255db94247a74",
+      "to": "0xd0d1e7416e88d42300e8277bc3107cfd73e3cfaf",
+      "value": "20000000000000000000000",
+      "txHash": "0x32754cd1f4a05dec70ae40c2abbb5081349cf67d88c7393718b94691e18e45af",
+      "logIndex": 19,
+      "block": 63459574,
+      "fromRole": "BETTOR_A",
+      "toRole": "BETTOR_B",
+      "usdc": "20000.000000000000000000"
+    },
+    {
+      "token": "MURMUR(circ)",
+      "from": "0xbb8ba80852efad555ac6b324a57255db94247a74",
+      "to": "0xe3b7d9c31f89a9593a8eecac4661eb25c235d13d",
+      "value": "12000000000000000000000",
+      "txHash": "0xd2e7035be4400c7f5970abe8720183d9427a95826feba99521f176b0c915d3c7",
+      "logIndex": 27,
+      "block": 63459688,
+      "fromRole": "BETTOR_A",
+      "toRole": "PredictionArena(竞技场)",
+      "usdc": "12000.000000000000000000"
+    },
+    {
+      "token": "MURMUR(circ)",
+      "from": "0xd0d1e7416e88d42300e8277bc3107cfd73e3cfaf",
+      "to": "0xe3b7d9c31f89a9593a8eecac4661eb25c235d13d",
+      "value": "8000000000000000000000",
+      "txHash": "0xe48b3e10933ce13099c7a749b704d0306f13e2614a989e2916e360b2f9f3e10a",
+      "logIndex": 13,
+      "block": 63459691,
+      "fromRole": "BETTOR_B",
+      "toRole": "PredictionArena(竞技场)",
+      "usdc": "8000.000000000000000000"
+    },
+    {
+      "token": "MURMUR(circ)",
+      "from": "0xbb8ba80852efad555ac6b324a57255db94247a74",
+      "to": "0xe3b7d9c31f89a9593a8eecac4661eb25c235d13d",
+      "value": "1000000000000000000000",
+      "txHash": "0xe8cdc830f66ee7f01ba34e3110a4d446ac38f3d128830737ed7c6b62ec81e53b",
+      "logIndex": 46,
+      "block": 63459705,
+      "fromRole": "BETTOR_A",
+      "toRole": "PredictionArena(竞技场)",
+      "usdc": "1000.000000000000000000"
+    },
+    {
+      "token": "MURMUR(circ)",
+      "from": "0xbb8ba80852efad555ac6b324a57255db94247a74",
+      "to": "0xba4adacc3c72069f4a35ebaaeb2fe30ecb8ae21f",
+      "value": "500000000000000000000",
+      "txHash": "0xcc833c6b912bc24123e445ba516100c66028955a508fa29028474457756ccffa",
+      "logIndex": 23,
+      "block": 63459728,
+      "fromRole": "BETTOR_A",
+      "toRole": "PredictionArena-stale(演练)",
+      "usdc": "500.000000000000000000"
+    },
+    {
+      "token": "MURMUR(circ)",
+      "from": "0xe3b7d9c31f89a9593a8eecac4661eb25c235d13d",
+      "to": "0xbb8ba80852efad555ac6b324a57255db94247a74",
+      "value": "20000000000000000000000",
+      "txHash": "0x960d83f75ef566800ad8db5f3ddeee7dcbafb81b1782e2a86b3a3aec5e84b07d",
+      "logIndex": 44,
+      "block": 63459983,
+      "fromRole": "PredictionArena(竞技场)",
+      "toRole": "BETTOR_A",
+      "usdc": "20000.000000000000000000"
+    },
+    {
+      "token": "MURMUR(circ)",
+      "from": "0xe3b7d9c31f89a9593a8eecac4661eb25c235d13d",
+      "to": "0xbb8ba80852efad555ac6b324a57255db94247a74",
+      "value": "1000000000000000000000",
+      "txHash": "0x6ce9ce5e5caf8c2921e999281cc860c90afa3cb17978bae68ddea73bab869412",
+      "logIndex": 19,
+      "block": 63460010,
+      "fromRole": "PredictionArena(竞技场)",
+      "toRole": "BETTOR_A",
+      "usdc": "1000.000000000000000000"
+    },
+    {
+      "token": "MURMUR(circ)",
+      "from": "0xba4adacc3c72069f4a35ebaaeb2fe30ecb8ae21f",
+      "to": "0xbb8ba80852efad555ac6b324a57255db94247a74",
+      "value": "500000000000000000000",
+      "txHash": "0x66dc501fe5138d0fe31aa00f7c41810da7b554c009fb07ef26911512b16173c2",
+      "logIndex": 33,
+      "block": 63460058,
+      "fromRole": "PredictionArena-stale(演练)",
+      "toRole": "BETTOR_A",
+      "usdc": "500.000000000000000000"
+    }
+  ],
+  "flows": {
+    "adminReceipts": [
+      {
+        "token": "USDC(mock)",
+        "value": "1.000000",
+        "from": "BETTOR_A"
+      },
+      {
+        "token": "MURMUR(prod)",
+        "value": "1000000000.000000000000000000",
+        "from": "零地址(仅铸币)"
+      }
+    ],
+    "cofferOutflows": 0,
+    "arenaPayouts": [
+      {
+        "to": "BETTOR_A",
+        "value": "20000.000000000000000000"
+      },
+      {
+        "to": "BETTOR_A",
+        "value": "1000.000000000000000000"
+      },
+      {
+        "to": "BETTOR_A",
+        "value": "500.000000000000000000"
+      }
+    ],
+    "violations": [],
+    "pushScan": {
+      "usdc": [
+        "0x55534420436f696e202872656865617273616c29",
+        "0x6d555344433a20626164207369676e6174757265"
+      ],
+      "murmurProd": [
+        "0x2963a575d09dc97e610786ad2118154d5e54dccc"
+      ],
+      "murmurCirc": [
+        "0x2963a575d09dc97e610786ad2118154d5e54dccc"
+      ],
+      "receipt": [],
+      "manifest": [],
+      "lineage": [],
+      "coffer": [],
+      "cofferStale": [],
+      "arena": [],
+      "arenaStale": []
+    }
+  },
+  "sovereignty": {},
+  "nativeUsdcProbe": {
+    "writable": true,
+    "eip3009": true,
+    "authUsedEvents": 0
+  },
+  "finishedAt": "2026-09-22T18:03:53.624Z",
+  "preBlock": 63459412,
+  "endBlock": 63460064,
+  "usdcMode": "mock",
+  "gasPrice": "25000000000",
+  "actors": {
+    "DEPLOYER": "0x168145bedF51773b639E83c6c8321eB91d969f22",
+    "RESOLVER": "0x1e8200e31078005bBcb74a9fE955187A35c34e87",
+    "BETTOR_A": "0xBB8Ba80852efAd555AC6B324A57255Db94247A74",
+    "BETTOR_B": "0xD0d1E7416e88d42300E8277bc3107cFD73E3cFaf",
+    "OUTSIDER": "0x3b82dB79a903da2D30CA9c5dd1Adf1b84B898186",
+    "TREASURY_ADMIN": "0x10687368eF1be3f178de0fCCf5EdfF49e1C258B1"
+  },
+  "roles": {
+    "0x10687368ef1be3f178de0fccf5edff49e1c258b1": "TREASURY=ADMIN(无钥,只收钱)",
+    "0x168145bedf51773b639e83c6c8321eb91d969f22": "DEPLOYER(只付gas/注资)",
+    "0x1e8200e31078005bbcb74a9fe955187a35c34e87": "RESOLVER(facilitator,mnemonic派生idx2000000)",
+    "0xbb8ba80852efad555ac6b324a57255db94247a74": "BETTOR_A",
+    "0xd0d1e7416e88d42300e8277bc3107cfd73e3cfaf": "BETTOR_B",
+    "0x3b82db79a903da2d30ca9c5dd1adf1b84b898186": "OUTSIDER(路人)",
+    "0x3600000000000000000000000000000000000000": "Arc原生USDC(precompile)",
+    "0x0000000000000000000000000000000000000000": "零地址(仅铸币)",
+    "0xc818439a168ac2e8591caf79077bc7f8c16bb8b3": "MockUSDC(彩排资产·绝不上主网)",
+    "0x6cd746c1be260056761d811dec3914cefd9460dd": "MurmurToken(生产·ADMIN)",
+    "0x4d6b4298d28c237df1ef543d572350be02a3e747": "MurmurToken(流通副本)",
+    "0x23ec3868929e972e4440dd04039bbee709efae4d": "NeuralReceiptRegistry(零资金)",
+    "0xaa512cef0493d150c910bc0d2e4ad8b16e3cb392": "NeuralManifestRegistry(零资金)",
+    "0x674a2752fcca6b6781f338bb9b09daea413c41c7": "ConnectomeLineage(零资金)",
+    "0x64b03c71ee8732dd4392c5a5fbd007d5f9eaf2b2": "WarCoffer(战争托管)",
+    "0x0ae99f09d2645ccd2fe34e2a29d1ce64af915e6c": "WarCoffer-stale(演练)",
+    "0xe3b7d9c31f89a9593a8eecac4661eb25c235d13d": "PredictionArena(竞技场)",
+    "0xba4adacc3c72069f4a35ebaaeb2fe30ecb8ae21f": "PredictionArena-stale(演练)"
+  }
+}
