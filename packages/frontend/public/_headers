@@ -25,3 +25,18 @@
 
 /styles.css
   Cache-Control: no-cache, must-revalidate
+
+# The announcements feed must never be edge-cached: a fresh id only matters if the reader actually
+# receives it (the account-scoped token cannot purge zone cache, so we pin at the source instead).
+/announcements.json
+  Cache-Control: no-cache, must-revalidate
+
+# The canary board + trust page render live numbers — same policy as the other live-entry HTML.
+/canary
+  Cache-Control: no-store, max-age=0
+
+/canary.html
+  Cache-Control: no-store, max-age=0
+
+/transparency
+  Cache-Control: no-store, max-age=0

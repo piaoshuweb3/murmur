@@ -3340,6 +3340,9 @@ export class FlyStateDO {
         gini: totals.gini,
       },
       lastNet: t.lastNet,
+      // Mined-net latency (additive, canary page): p50/p95 over the last 64 mined nets, honest nulls
+      // before the first success. Volatility note travels with the page, not the API.
+      latency: t.latency,
       // Evidence stream: the freshest MINED net receipts (newest first) — each links to the explorer.
       recentNets: economy
         .proofsSnapshot()

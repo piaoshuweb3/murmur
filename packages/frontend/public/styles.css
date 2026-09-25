@@ -786,6 +786,34 @@ body.lineage-open .panel-pop { opacity: 0.1; pointer-events: none; }
 .drawer.open { transform: translateX(0); pointer-events: auto; }
 body.history-open .panel-pop, body.chron-open .panel-pop { opacity: 0.1; pointer-events: none; }
 
+/* ============ the canary trigger (bottom-right, above the stele) ============
+   A quiet parchment pill that pairs with the chronicle stele: hairline frame, mono small-caps,
+   and a live-dot that only means "the board is read-only & live" — never a fake status light. */
+.canary-btn {
+  position: fixed; z-index: 6; right: var(--pad); bottom: calc(var(--pad) + 128px);
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 14px;
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ink); background: var(--panel);
+  border: 1px solid rgba(var(--accent-rgb), 0.7);
+  border-radius: 999px;
+  box-shadow: 0 6px 18px rgba(var(--ink-rgb), 0.16);
+  text-decoration: none;
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+.canary-btn:hover { transform: translateY(-1px); filter: brightness(1.08); }
+.canary-btn:active { transform: translateY(1px); }
+.canary-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.18);
+  animation: canary-pulse 3.2s ease-in-out infinite;
+}
+@keyframes canary-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.18); }
+  50%      { box-shadow: 0 0 0 5px rgba(var(--accent-rgb), 0.1); }
+}
+
 /* ============ the chronicle drawer (bottom-right button → full-height sheet) ============
    The historian's home: era badge, "prove no LLM" verdict, the narrative timeline, the ledger
    of relationships (bonds / reputation / grudges) and the houses & monuments blocks.

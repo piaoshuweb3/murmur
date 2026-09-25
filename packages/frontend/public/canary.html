@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#f2eee6" />
+  <title>flyx402 — MURMUR Canary · Arc x402 实时结算遥测</title>
+  <meta name="description" content="flyx402.xyz 的实时、只读结算遥测：Arc 主网上 x402 真实 USDC 结算的成功率、净扎折叠与 gas 摊销、日预算护栏、实时时间序列与活性——全部由浏览器直接读取公开 API，无合成负载、无测试网、无 LLM。" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><g fill='%231a1a18'><circle cx='12' cy='14' r='3.1'/><circle cx='20.5' cy='11.5' r='2.3'/><circle cx='17.5' cy='21' r='1.9'/></g></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;1,9..144,300&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* ── flyx402 纸墨令牌（与站点 styles.css 同一品牌家族，自包含于本页） ── */
+    :root {
+      --paper: #f2eee6; --ink: #1a1a18; --ink-rgb: 26, 26, 24;
+      --accent: #9a8c6e; --hair: rgba(26,26,24,.14); --hair-soft: rgba(26,26,24,.07);
+      --muted: rgba(26,26,24,.55); --ok: #4f7d5a; --warn: #b4553c; --get: #5b7c8d;
+      --display: "Fraunces", "Iowan Old Style", Georgia, "Noto Serif SC", serif;
+      --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, "Noto Sans SC", monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { background: var(--paper); color: var(--ink); font-family: var(--mono); font-size: 14px; line-height: 1.65; -webkit-font-smoothing: antialiased; }
+    ::selection { background: rgba(154,140,110,.24); }
+    a { color: inherit; }
+    button { font-family: inherit; cursor: pointer; }
+    .grain { position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: .04;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+    .topbar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 12px clamp(14px, 3vw, 32px); background: rgba(242,238,230,.92); backdrop-filter: blur(6px);
+      border-bottom: 1px solid var(--hair); }
+    .brand { display: flex; align-items: baseline; gap: 10px; text-decoration: none; }
+    .brand b { font-family: var(--display); font-weight: 600; font-size: 17px; letter-spacing: .02em; }
+    .brand span { color: var(--muted); font-size: 11.5px; letter-spacing: .08em; }
+    .tools { display: flex; align-items: center; gap: 8px; }
+    .chip { border: 1px solid var(--hair); border-radius: 999px; padding: 3px 11px; font-size: 11.5px; color: var(--muted); background: transparent; white-space: nowrap; }
+    .chip.live { color: var(--ok); border-color: rgba(79,125,90,.45); }
+    button.chip:hover { border-color: var(--ink); color: var(--ink); }
+    main { position: relative; z-index: 1; max-width: 1060px; margin: 0 auto; padding: clamp(20px, 4vw, 44px) clamp(14px, 3vw, 32px) 64px; }
+    .hero { border: 1px solid var(--hair); border-radius: 14px; padding: clamp(20px, 3.4vw, 34px); background: rgba(255,255,255,.28); }
+    .hero h1 { font-family: var(--display); font-weight: 300; font-size: clamp(24px, 4.4vw, 38px); line-height: 1.18; letter-spacing: .01em; }
+    .hero h1 i { font-style: italic; color: var(--accent); }
+    .hero p { margin-top: 10px; color: var(--muted); max-width: 62ch; }
+    .pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+    section { margin-top: clamp(26px, 4vw, 44px); border-top: 1px solid var(--hair); padding-top: 22px; }
+    section h2 { font-family: var(--display); font-weight: 400; font-size: 20px; letter-spacing: .01em; display: flex; align-items: baseline; gap: 12px; }
+    section h2 .n { font-family: var(--mono); font-size: 12px; color: var(--accent); letter-spacing: .14em; }
+    section > p.lead { color: var(--muted); margin-top: 6px; max-width: 74ch; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); gap: 10px; margin-top: 16px; }
+    .card { border: 1px solid var(--hair); border-radius: 10px; padding: 13px 14px 11px; background: rgba(255,255,255,.34); }
+    .card .k { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+    .card .v { font-family: var(--display); font-size: clamp(22px, 3vw, 30px); font-weight: 400; margin-top: 3px; font-variant-numeric: tabular-nums; }
+    .card .v small { font-size: .5em; color: var(--muted); margin-left: 2px; }
+    .card .s { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+    .card.ok .v { color: var(--ok); } .card.warn .v { color: var(--warn); } .card.get .v { color: var(--get); }
+    .note { margin-top: 12px; border: 1px solid var(--hair); border-left: 3px solid var(--accent); border-radius: 8px; padding: 10px 14px; font-size: 12.5px; color: var(--muted); }
+    .note.amber { border-left-color: var(--warn); color: var(--ink); background: rgba(180,85,60,.06); }
+    .note.green { border-left-color: var(--ok); color: var(--ink); background: rgba(79,125,90,.07); }
+    .bar { height: 5px; border-radius: 999px; background: var(--hair-soft); overflow: hidden; margin-top: 9px; border: 1px solid var(--hair-soft); }
+    .bar i { display: block; height: 100%; background: var(--accent); width: 0%; transition: width .6s ease; }
+    .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; margin-top: 16px; }
+    .chart { border: 1px solid var(--hair); border-radius: 10px; background: rgba(255,255,255,.34); padding: 12px 12px 8px; }
+    .chart .k { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; }
+    .chart canvas { width: 100%; height: 92px; display: block; margin-top: 6px; }
+    ol.rails { margin: 14px 0 0 18px; display: grid; gap: 9px; color: var(--ink); }
+    ol.rails li { padding-left: 4px; }
+    ol.rails b { font-weight: 500; }
+    ol.rails .muted { color: var(--muted); }
+    table.nets { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 12.5px; }
+    table.nets th { text-align: left; font-weight: 500; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--hair); padding: 6px 8px; }
+    table.nets td { border-bottom: 1px solid var(--hair-soft); padding: 7px 8px; font-variant-numeric: tabular-nums; }
+    table.nets a { text-decoration: none; border-bottom: 1px dotted var(--accent); }
+    .empty { color: var(--muted); font-style: italic; padding: 10px 2px; }
+    footer { position: relative; z-index: 1; border-top: 1px solid var(--hair); padding: 20px clamp(14px, 3vw, 32px) 30px; max-width: 1060px; margin: 0 auto;
+      display: flex; flex-wrap: wrap; gap: 10px 20px; justify-content: space-between; color: var(--muted); font-size: 12px; }
+    footer nav { display: flex; flex-wrap: wrap; gap: 14px; }
+    footer a { text-decoration: none; border-bottom: 1px dotted var(--accent); }
+    .spin { display: inline-block; animation: sp 0.9s linear infinite; }
+    @keyframes sp { to { transform: rotate(360deg); } }
+    @media (max-width: 560px) { .brand span { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <a class="brand" href="/"><b>flyx402</b><span>MURMUR · Arc x402</span></a>
+    <div class="tools">
+      <span class="chip" id="chain-chip">Arc mainnet · 5042</span>
+      <button class="chip" id="lang-btn" type="button" title="switch language">EN</button>
+      <button class="chip" id="refresh-btn" type="button"><span id="refresh-ic">↻</span> <span data-i18n="refresh">刷新</span></button>
+    </div>
+  </header>
+
+  <main>
+    <div class="hero">
+      <h1 data-i18n="hero.h1">金丝雀 · <i>实时结算遥测</i></h1>
+      <p data-i18n="hero.p">一个只读的、live 的信任面板：Arc 主网上 x402 真实 USDC 结算的成功率、净扎与 gas 摊销、日预算护栏、时间序列与活性。所有数字由本页直接读取公开 API（/telemetry、/history、/health）——无合成负载、无测试网、无 LLM，也无须信任本页：每一个数字都能在公开端点复算。</p>
+      <div class="pills">
+        <span class="chip" id="pill-updated" data-i18n="pill.waiting">等待首次读取…</span>
+        <span class="chip" id="pill-mode">—</span>
+        <span class="chip" id="pill-api">API —</span>
+      </div>
+    </div>
+
+    <section id="s1">
+      <h2><span class="n">01</span><span data-i18n="s1.h">结算可靠性</span></h2>
+      <p class="lead" data-i18n="s1.lead">每一次结算尝试都是对 Arc 主网的真实广播。失败包含链上验证拒绝与挖矿失败，影子空跑不计入分母——分母是诚实的。</p>
+      <div class="grid">
+        <div class="card" id="c-rate"><div class="k" data-i18n="s1.k1">结算成功率</div><div class="v">—</div><div class="s">—</div></div>
+        <div class="card ok"><div class="k" data-i18n="s1.k2">成功（挖出）</div><div class="v" id="v-ok">—</div><div class="s">settleOk</div></div>
+        <div class="card warn"><div class="k" data-i18n="s1.k3">失败</div><div class="v" id="v-fail">—</div><div class="s">settleFail</div></div>
+        <div class="card get"><div class="k">P50 <span data-i18n="s1.k4">延迟</span></div><div class="v" id="v-p50">—</div><div class="s">verify → receipt</div></div>
+        <div class="card get"><div class="k">P95 <span data-i18n="s1.k4b">延迟</span></div><div class="v" id="v-p95">—</div><div class="s" id="s-p95n">n = 0</div></div>
+      </div>
+      <div class="note" id="rail-note" hidden></div>
+    </section>
+
+    <section id="s2">
+      <h2><span class="n">02</span><span data-i18n="s2.h">净扎与 Gas 摊销</span></h2>
+      <p class="lead" data-i18n="s2.lead">逐对手双边净额累积，只有差额上链：N 笔交易折叠成 1 笔链上结算，gas 被摊销到更大的结算价值上。折叠比实时派生自 /telemetry——总交易数对链上结算数。</p>
+      <div class="grid">
+        <div class="card"><div class="k" data-i18n="s2.k1">折叠比（N : 1）</div><div class="v" id="v-fold">—</div><div class="s" data-i18n="s2.s1">笔交易 → 1 笔结算</div></div>
+        <div class="card"><div class="k" data-i18n="s2.k2">待扎对手对</div><div class="v" id="v-pairs">—</div><div class="s">pendingPairs</div></div>
+        <div class="card"><div class="k" data-i18n="s2.k3">待扎交易</div><div class="v" id="v-ptrades">—</div><div class="s">pendingTrades</div></div>
+        <div class="card"><div class="k" data-i18n="s2.k4">待扎净额</div><div class="v" id="v-pnet">—</div><div class="s">USDC</div></div>
+      </div>
+    </section>
+
+    <section id="s3">
+      <h2><span class="n">03</span><span data-i18n="s3.h">日预算护栏</span></h2>
+      <p class="lead" data-i18n="s3.lead">真实花销有硬性日上限——写进代码，不是承诺。触顶后群体当日停止链上交易（绝不负债），次日自动重置。这是对 gas 与资金的诚实护栏。</p>
+      <div class="grid">
+        <div class="card"><div class="k" data-i18n="s3.k1">今日真实花销</div><div class="v" id="v-spent">—</div><div class="s" id="s-daykey">—</div></div>
+        <div class="card"><div class="k" data-i18n="s3.k2">日上限</div><div class="v" id="v-cap">—</div><div class="s">USDC / <span data-i18n="s3.day">日</span></div></div>
+        <div class="card" style="grid-column: 1 / -1;"><div class="k" data-i18n="s3.k3">用量</div><div class="bar"><i id="budget-bar"></i></div><div class="s" id="s-budget">—</div></div>
+      </div>
+    </section>
+
+    <section id="s4">
+      <h2><span class="n">04</span><span data-i18n="s4.h">实时时间序列</span></h2>
+      <p class="lead" data-i18n="s4.lead">来自 D1 档案（/history）的逐 tick 序列：市场温度与机制状态、财富基尼、成交与链上结算。每约 60 秒随整页一起刷新。</p>
+      <div class="charts">
+        <div class="chart"><div class="k"><span data-i18n="s4.c1">市场温度</span><span id="k-temp">—</span></div><canvas id="ch-temp"></canvas></div>
+        <div class="chart"><div class="k"><span data-i18n="s4.c2">财富基尼</span><span id="k-gini">—</span></div><canvas id="ch-gini"></canvas></div>
+        <div class="chart"><div class="k"><span data-i18n="s4.c3">成交 / tick</span><span id="k-deals">—</span></div><canvas id="ch-deals"></canvas></div>
+        <div class="chart"><div class="k"><span data-i18n="s4.c4">链上结算 / tick</span><span id="k-settles">—</span></div><canvas id="ch-settles"></canvas></div>
+      </div>
+      <div class="note" id="series-note">—</div>
+    </section>
+
+    <section id="s5">
+      <h2><span class="n">05</span><span data-i18n="s5.h">活性与在线</span></h2>
+      <p class="lead" data-i18n="s5.lead">分钟级 cron 推动群体与市场；/history 的最后一行时龄就是轨道心跳。轨道若停摆，这里最先看到。</p>
+      <div class="grid">
+        <div class="card"><div class="k">API /health</div><div class="v" id="v-health">—</div><div class="s" id="s-version">—</div></div>
+        <div class="card"><div class="k" data-i18n="s5.k1">末次 tick 时龄</div><div class="v" id="v-age">—</div><div class="s" data-i18n="s5.s1">越新越健康</div></div>
+        <div class="card"><div class="k" data-i18n="s5.k2">存活代理</div><div class="v" id="v-agents">—</div><div class="s">dynasty.living</div></div>
+        <div class="card"><div class="k" data-i18n="s5.k3">档案窗口</div><div class="v" id="v-window">—</div><div class="s" id="s-window">—</div></div>
+      </div>
+    </section>
+
+    <section id="s6">
+      <h2><span class="n">06</span><span data-i18n="s6.h">为什么这些数字可信</span></h2>
+      <ol class="rails">
+        <li><b data-i18n="s6.b1">六合约全自有、代币源码已验证。</b> <span class="muted" data-i18n="s6.b1s">MURMUR 代币在 Arc 浏览器完成源码确权，带官方识别图标，无匿名代币风险。</span></li>
+        <li><b data-i18n="s6.b2">每笔结算都是链上真实转账。</b> <span class="muted" data-i18n="s6.b2s">EIP-3009 授权 + reveal 转账在 Arc 挖出；回执哈希链的链头经 NeuralReceiptRegistry 提交上链，可在浏览器逐笔回溯。</span></li>
+        <li><b data-i18n="s6.b3">回执正文钉存 IPFS。</b> <span class="muted" data-i18n="s6.b3s">每个已挖出回执附带 CID——任何人可取回正文、复算哈希、与链上 nonce 对账，无须信任任何服务器。</span></li>
+        <li><b data-i18n="s6.b4">收款地址唯一且公开。</b> <span class="muted" data-i18n="s6.b4s">全部资金路径（结算、金库、费用）汇入同一 ADMIN 地址，一条钱包线索审计一切。</span></li>
+        <li><b data-i18n="s6.b5">数字全部公开可复算。</b> <span class="muted" data-i18n="s6.b5s">/telemetry、/history、/proofs、/openapi.json 无鉴权开放；编年史逐行可在浏览器内确定性重导，无 LLM 参与写作。</span></li>
+      </ol>
+      <h3 style="margin-top:26px; font-family:var(--display); font-weight:400; font-size:16px;" data-i18n="s6.recent">最近 8 笔已挖出结算（证据流）</h3>
+      <div id="nets-wrap"><div class="empty" data-i18n="s6.empty">暂无已挖出结算——注资后第一笔上链净扎会出现在这里，并附浏览器链接。</div></div>
+    </section>
+
+    <section id="s7">
+      <h2><span class="n">07</span><span data-i18n="s7.h">诚实的局限</span></h2>
+      <ol class="rails">
+        <li><b data-i18n="s7.b1">所有数字是测量，不是估计。</b> <span class="muted" data-i18n="s7.b1s">没有样本时显示"—"而不是 0；样本数随每个指标一起公布。</span></li>
+        <li><b data-i18n="s7.b2">延迟只统计成功结算。</b> <span class="muted" data-i18n="s7.b2s">失败尝试的耗时混入退避与重试噪音，不代表读者实际会付出的结算成本；延迟环为最近 64 笔已挖出净扎，随基础设施重启持久保留。</span></li>
+        <li><b data-i18n="s7.b3">轨道状态如实披露。</b> <span class="muted" data-i18n="s7.b3s">facilitator 未注资时结算尝试按预期失败（01 区琥珀条说明）；注资后本页自动点亮，无需任何人工干预。</span></li>
+        <li><b data-i18n="s7.b4">本页不构成投资建议。</b> <span class="muted" data-i18n="s7.b4s">24 只代理规模的基尼系数是社会实验观察值，不是财富分配结论；请以 Arc 浏览器链上数据为最终对账依据。</span></li>
+      </ol>
+    </section>
+  </main>
+
+  <footer>
+    <span>flyx402.xyz · MURMUR on Arc — <span data-i18n="foot.note">每个数字都是测量，不是估计</span></span>
+    <nav>
+      <a href="/transparency" data-i18n="foot.transparency">信任总页</a>
+      <a href="/proofs" data-i18n="foot.proofs">回执证据</a>
+      <a href="/developers.html">API</a>
+      <a href="/annals" data-i18n="foot.annals">编年史</a>
+    </nav>
+  </footer>
+
+  <script>
+  "use strict";
+  // ============================================================================
+  // flyx402 · MURMUR canary — 自有实现的独立实时遥测页（v1.5.2）
+  // 只读：本页从不 POST、从不开关任何层；数据全部来自公开只读端点。
+  // ============================================================================
+  (function () {
+    // ---- i18n（内建双语，zh 默认；切换存 localStorage）----
+    var DICT = {
+      en: {
+        "refresh": "refresh", "hero.h1": "The Canary · live settlement telemetry",
+        "hero.p": "A read-only, live trust board: real-USDC x402 settlement success, netting and gas amortisation, the daily budget guardrail, time series and liveness on Arc mainnet. Every figure is read client-side from public endpoints (/telemetry, /history, /health) — no synthetic load, no testnet, no LLM, and no need to trust this page: every number can be recomputed from the public API.",
+        "pill.waiting": "waiting for first read…",
+        "s1.h": "Settlement reliability", "s1.lead": "Every settlement attempt is a real broadcast to Arc mainnet. Failures include on-chain verification rejects and mining failures; shadow dry-runs are excluded from the denominator — the denominator is honest.",
+        "s1.k1": "success rate", "s1.k2": "mined (success)", "s1.k3": "failed", "s1.k4": "latency", "s1.k4b": "latency",
+        "s2.h": "Netting & gas amortisation", "s2.lead": "Bilateral nets accumulate per counterpair and only the difference moves on-chain: N trades fold into 1 mined settlement, amortising gas across a larger settled value. The fold figure is derived live from /telemetry — gross trades against on-chain settlements.",
+        "s2.k1": "fold ratio (N : 1)", "s2.s1": "trades → 1 settlement", "s2.k2": "pending pairs", "s2.k3": "pending trades", "s2.k4": "pending net",
+        "s3.h": "Daily budget guardrail", "s3.lead": "Real spend runs under a hard daily cap — written in code, not promised. At the cap the swarm simply stops settling on-chain for the day (never goes into debt); the counter resets at midnight UTC. An honest guardrail for gas and treasury alike.",
+        "s3.k1": "today's real spend", "s3.k2": "daily cap", "s3.day": "day", "s3.k3": "utilisation",
+        "s4.h": "Live time series", "s4.lead": "Per-tick series from the D1 archive (/history): market temperature & regime, wealth Gini, deals and on-chain settlements. Refreshed with the page about every 60 seconds.",
+        "s4.c1": "temperature", "s4.c2": "wealth Gini", "s4.c3": "deals / tick", "s4.c4": "on-chain settles / tick",
+        "s5.h": "Liveness", "s5.lead": "A minute-level cron drives the swarm and the market; the age of the newest /history row IS the rail's heartbeat. If the rail ever stalls, it shows here first.",
+        "s5.k1": "last tick age", "s5.s1": "fresher is healthier", "s5.k2": "living agents", "s5.k3": "archive window",
+        "s6.h": "Why these numbers are credible",
+        "s6.b1": "Six contracts fully self-owned; the token source is verified.", "s6.b1s": "MURMUR is source-verified on the Arc explorer with an official badge — no anonymous-token risk.",
+        "s6.b2": "Every settlement is a real on-chain transfer.", "s6.b2s": "EIP-3009 authorize + reveal transfers mined on Arc; the receipt hash-chain head is committed on-chain via NeuralReceiptRegistry and traceable in the explorer.",
+        "s6.b3": "Receipt bodies are pinned to IPFS.", "s6.b3s": "Each mined receipt carries a CID — anyone can fetch the body, recompute the hash and reconcile it with the on-chain nonce without trusting any server.",
+        "s6.b4": "A single, public receiving address.", "s6.b4s": "Every money path (settlements, treasury, fees) lands in one ADMIN wallet — one wallet traces it all.",
+        "s6.b5": "Every figure is public and recomputable.", "s6.b5s": "/telemetry, /history, /proofs and /openapi.json are open without auth; the chronicle is deterministic and re-derivable in your browser — no LLM ever wrote a line.",
+        "s6.recent": "Last 8 mined settlements (evidence stream)",
+        "s6.empty": "No mined settlement yet — after funding, the first on-chain net appears here with its explorer link.",
+        "s7.h": "Caveats & honest limits",
+        "s7.b1": "Every number is measured, never estimated.", "s7.b1s": "When there is no sample the page shows “—”, not 0; sample sizes travel with each metric.",
+        "s7.b2": "Latency counts mined settlements only.", "s7.b2s": "Failed attempts conflate backoff and retry noise — not what a reader's settlement would cost. The ring holds the last 64 mined nets and is persisted across infra restarts.",
+        "s7.b3": "The rail state is disclosed as-is.", "s7.b3s": "While the facilitator awaits funding, settlement attempts fail as expected (amber note in 01); the page lights up by itself once funded — no manual step.",
+        "s7.b4": "Nothing here is financial advice.", "s7.b4s": "A Gini over a 24-agent swarm is a social-experiment observation, not a wealth-distribution claim; defer to the Arc explorer as the final ledger.",
+        "foot.note": "every number measured, never estimated", "foot.transparency": "Trust page", "foot.proofs": "Receipt proofs", "foot.annals": "Chronicle",
+        "rail.prefund": "The rail is armed but the facilitator wallet is not yet funded — every settle attempt fails by design and the ledger records the honest denominator. This page lights up automatically after funding (≈30.72 USDC per the checklist); nothing else needs to happen.",
+        "rail.live": "The rail is live: real USDC nets are mining on Arc mainnet.",
+        "t.gross": "gross trades", "t.settled": "mined", "t.tx": "tx", "t.amount": "net USDC", "t.when": "when",
+        "s.window": "first → last", "s4.span": "ticks", "never": "never"
+      },
+      zh: {
+        "refresh": "刷新", "hero.h1": "金丝雀 · 实时结算遥测",
+        "hero.p": "一个只读的、live 的信任面板：Arc 主网上 x402 真实 USDC 结算的成功率、净扎与 gas 摊销、日预算护栏、时间序列与活性。所有数字由本页直接读取公开 API（/telemetry、/history、/health）——无合成负载、无测试网、无 LLM，也无须信任本页：每一个数字都能在公开端点复算。",
+        "pill.waiting": "等待首次读取…",
+        "s1.h": "结算可靠性", "s1.lead": "每一次结算尝试都是对 Arc 主网的真实广播。失败包含链上验证拒绝与挖矿失败，影子空跑不计入分母——分母是诚实的。",
+        "s1.k1": "结算成功率", "s1.k2": "成功（挖出）", "s1.k3": "失败", "s1.k4": "延迟", "s1.k4b": "延迟",
+        "s2.h": "净扎与 Gas 摊销", "s2.lead": "逐对手双边净额累积，只有差额上链：N 笔交易折叠成 1 笔链上结算，gas 被摊销到更大的结算价值上。折叠比实时派生自 /telemetry——总交易数对链上结算数。",
+        "s2.k1": "折叠比（N : 1）", "s2.s1": "笔交易 → 1 笔结算", "s2.k2": "待扎对手对", "s2.k3": "待扎交易", "s2.k4": "待扎净额",
+        "s3.h": "日预算护栏", "s3.lead": "真实花销有硬性日上限——写进代码，不是承诺。触顶后群体当日停止链上交易（绝不负债），次日自动重置。这是对 gas 与资金的诚实护栏。",
+        "s3.k1": "今日真实花销", "s3.k2": "日上限", "s3.day": "日", "s3.k3": "用量",
+        "s4.h": "实时时间序列", "s4.lead": "来自 D1 档案（/history）的逐 tick 序列：市场温度与机制状态、财富基尼、成交与链上结算。每约 60 秒随整页一起刷新。",
+        "s4.c1": "市场温度", "s4.c2": "财富基尼", "s4.c3": "成交 / tick", "s4.c4": "链上结算 / tick",
+        "s5.h": "活性与在线", "s5.lead": "分钟级 cron 推动群体与市场；/history 的最后一行时龄就是轨道心跳。轨道若停摆，这里最先看到。",
+        "s5.k1": "末次 tick 时龄", "s5.s1": "越新越健康", "s5.k2": "存活代理", "s5.k3": "档案窗口",
+        "s6.h": "为什么这些数字可信",
+        "s6.b1": "六合约全自有、代币源码已验证。", "s6.b1s": "MURMUR 代币在 Arc 浏览器完成源码确权，带官方识别图标，无匿名代币风险。",
+        "s6.b2": "每笔结算都是链上真实转账。", "s6.b2s": "EIP-3009 授权 + reveal 转账在 Arc 挖出；回执哈希链的链头经 NeuralReceiptRegistry 提交上链，可在浏览器逐笔回溯。",
+        "s6.b3": "回执正文钉存 IPFS。", "s6.b3s": "每个已挖出回执附带 CID——任何人可取回正文、复算哈希、与链上 nonce 对账，无须信任任何服务器。",
+        "s6.b4": "收款地址唯一且公开。", "s6.b4s": "全部资金路径（结算、金库、费用）汇入同一 ADMIN 地址，一条钱包线索审计一切。",
+        "s6.b5": "数字全部公开可复算。", "s6.b5s": "/telemetry、/history、/proofs、/openapi.json 无鉴权开放；编年史逐行可在浏览器内确定性重导，无 LLM 参与写作。",
+        "s6.recent": "最近 8 笔已挖出结算（证据流）",
+        "s6.empty": "暂无已挖出结算——注资后第一笔上链净扎会出现在这里，并附浏览器链接。",
+        "s7.h": "诚实的局限",
+        "s7.b1": "所有数字是测量，不是估计。", "s7.b1s": "没有样本时显示“—”而不是 0；样本数随每个指标一起公布。",
+        "s7.b2": "延迟只统计成功结算。", "s7.b2s": "失败尝试的耗时混入退避与重试噪音，不代表读者实际会付出的结算成本；延迟环为最近 64 笔已挖出净扎，随基础设施重启持久保留。",
+        "s7.b3": "轨道状态如实披露。", "s7.b3s": "facilitator 未注资时结算尝试按预期失败（01 区琥珀条说明）；注资后本页自动点亮，无需任何人工干预。",
+        "s7.b4": "本页不构成投资建议。", "s7.b4s": "24 只代理规模的基尼系数是社会实验观察值，不是财富分配结论；请以 Arc 浏览器链上数据为最终对账依据。",
+        "foot.note": "每个数字都是测量，不是估计", "foot.transparency": "信任总页", "foot.proofs": "回执证据", "foot.annals": "编年史",
+        "rail.prefund": "轨道已武装但 facilitator 钱包尚未注资——每次结算尝试按预期失败，账本忠实记录诚实的分母。注资（清单 ≈30.72 USDC）后本页自动点亮，无需任何其他操作。",
+        "rail.live": "轨道已激活：真实 USDC 净扎正在 Arc 主网挖出。",
+        "t.gross": "总交易", "t.settled": "已挖出", "t.tx": "交易", "t.amount": "净额 USDC", "t.when": "时间",
+        "s.window": "首 → 末", "s4.span": "个 tick", "never": "从未"
+      }
+    };
+    var lang = "zh";
+    try { lang = localStorage.getItem("flyx:canary:lang") || (navigator.language && navigator.language.toLowerCase().indexOf("zh") === 0 ? "zh" : "en"); } catch (e) {}
+    function t(k) { return (DICT[lang] && DICT[lang][k]) || DICT.en[k] || k; }
+    function applyI18n() {
+      document.documentElement.lang = lang === "zh" ? "zh" : "en";
+      document.title = lang === "zh" ? "flyx402 — MURMUR Canary · Arc x402 实时结算遥测" : "flyx402 — MURMUR Canary · live Arc x402 settlement telemetry";
+      var nodes = document.querySelectorAll("[data-i18n]");
+      for (var i = 0; i < nodes.length; i++) {
+        var el = nodes[i], k = el.getAttribute("data-i18n");
+        var v = t(k); if (typeof v === "string") el.textContent = v;
+      }
+      document.getElementById("lang-btn").textContent = lang === "zh" ? "EN" : "中文";
+    }
+    document.getElementById("lang-btn").addEventListener("click", function () {
+      lang = lang === "zh" ? "en" : "zh";
+      try { localStorage.setItem("flyx:canary:lang", lang); } catch (e) {}
+      applyI18n(); render(last);
+    });
+
+    // ---- 格式化 ----
+    function fmt(v, d) { if (v == null || isNaN(Number(v))) return "—"; return Number(v).toLocaleString(lang === "zh" ? "zh-CN" : "en-US", { maximumFractionDigits: d == null ? 2 : d }); }
+    function usdc(v) { if (v == null) return "—"; var n = Number(v); if (!isFinite(n)) return "—"; return n.toLocaleString("en-US", { maximumFractionDigits: 6 }); }
+    function pct(v) { return v == null ? "—" : (Number(v) * 100).toFixed(2) + "%"; }
+    function ms(v) { if (v == null) return "—"; return v >= 1000 ? (v / 1000).toFixed(2) + " s" : Math.round(v) + " ms"; }
+    function ago(ts) {
+      if (!ts) return "—";
+      var s = Math.max(0, Math.round((Date.now() - ts) / 1000));
+      if (s < 90) return s + " s";
+      if (s < 5400) return Math.round(s / 60) + " min";
+      if (s < 172800) return Math.round(s / 3600) + " h";
+      return Math.round(s / 86400) + " d";
+    }
+    function when(ts) { if (!ts) return "—"; try { return new Date(ts).toLocaleString(lang === "zh" ? "zh-CN" : "en-US", { month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" }); } catch (e) { return "—"; } }
+    var EXPLORER = "https://explorer.arc.io";
+
+    // ---- 取数（全部只读 GET；allSettled 保证单源失败不拖垮整页）----
+    function j(p) {
+      return fetch(p, { headers: { accept: "application/json" } }).then(function (r) {
+        if (!r.ok) throw new Error(p + " → " + r.status);
+        return r.json();
+      });
+    }
+
+    var last = null; // 最近一次成功读取的快照（语言切换时即时重绘）
+    function refresh() {
+      var ic = document.getElementById("refresh-ic");
+      ic.className = "spin"; ic.textContent = "↻";
+      return Promise.allSettled([j("/telemetry"), j("/health"), j("/state"), j("/history?limit=360&order=desc")])
+        .then(function (rs) {
+          last = { telemetry: rs[0].status === "fulfilled" ? rs[0].value : null, health: rs[1].status === "fulfilled" ? rs[1].value : null, state: rs[2].status === "fulfilled" ? rs[2].value : null, history: rs[3].status === "fulfilled" ? rs[3].value : null };
+          render(last);
+          var okCount = rs.filter(function (r) { return r.status === "fulfilled"; }).length;
+          var api = document.getElementById("pill-api");
+          api.textContent = "API " + okCount + "/4";
+          api.className = "chip" + (okCount === 4 ? " live" : "");
+          var up = document.getElementById("pill-updated");
+          up.textContent = (lang === "zh" ? "更新于 " : "updated ") + new Date().toLocaleTimeString(lang === "zh" ? "zh-CN" : "en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+        })
+        .finally(function () { ic.className = ""; ic.textContent = "↻"; });
+    }
+    document.getElementById("refresh-btn").addEventListener("click", refresh);
+
+    // ---- 渲染 ----
+    function render(d) {
+      if (!d) return;
+      var T = d.telemetry, H = d.history;
+      document.getElementById("pill-mode").textContent = d.state && d.state.mode ? ("mode: " + d.state.mode) : "—";
+
+      // 01 可靠性
+      if (T) {
+        var s = T.success || {};
+        var rateCard = document.getElementById("c-rate");
+        rateCard.querySelector(".v").textContent = s.attempts > 0 ? pct(s.rate) : "—";
+        rateCard.querySelector(".s").textContent = s.attempts > 0 ? (fmt(s.settleOk) + " / " + fmt(s.attempts)) : (lang === "zh" ? "尚无尝试" : "no attempts yet");
+        rateCard.className = "card " + (s.attempts > 0 ? (s.settleOk > 0 ? "ok" : "warn") : "");
+        document.getElementById("v-ok").textContent = fmt(s.settleOk, 0);
+        document.getElementById("v-fail").textContent = fmt(s.settleFail, 0);
+        var L = T.latency || {};
+        document.getElementById("v-p50").textContent = ms(L.p50Ms);
+        document.getElementById("v-p95").textContent = ms(L.p95Ms);
+        document.getElementById("s-p95n").textContent = "n = " + (L.n || 0);
+        var note = document.getElementById("rail-note");
+        note.hidden = false;
+        if ((s.attempts || 0) > 0 && (s.settleOk || 0) === 0) { note.className = "note amber"; note.textContent = t("rail.prefund"); }
+        else if ((s.settleOk || 0) > 0) { note.className = "note green"; note.textContent = t("rail.live"); }
+        else { note.hidden = true; }
+      }
+
+      // 02 净扎
+      if (T && T.netting) {
+        var n = T.netting;
+        document.getElementById("v-fold").textContent = n.foldRatio == null ? "—" : (fmt(n.foldRatio, 1) + " : 1");
+        document.getElementById("v-pairs").textContent = fmt(n.pendingPairs, 0);
+        document.getElementById("v-ptrades").textContent = fmt(n.pendingTrades, 0);
+        document.getElementById("v-pnet").textContent = usdc(n.pendingNetUsdc);
+      }
+
+      // 03 预算
+      if (T && T.budget) {
+        var b = T.budget;
+        document.getElementById("v-spent").textContent = usdc(b.spentUsdc);
+        document.getElementById("s-daykey").textContent = b.dayKey || "—";
+        document.getElementById("v-cap").textContent = usdc(b.capUsdc);
+        var used = Number(b.capUsdc) > 0 ? (Number(b.spentUsdc) / Number(b.capUsdc)) : 0;
+        document.getElementById("budget-bar").style.width = Math.min(100, Math.max(0, used * 100)).toFixed(1) + "%";
+        document.getElementById("s-budget").textContent = pct(used) + (lang === "zh" ? " · 剩余 " : " · remaining ") + usdc(Math.max(0, Number(b.capUsdc || 0) - Number(b.spentUsdc || 0))) + " USDC";
+      }
+
+      // 04 时间序列（/history desc 取最新窗口，反转成时间升序供画布使用）
+      var rows = H && Array.isArray(H.rows) ? H.rows.slice().reverse() : [];
+      drawLine("ch-temp", rows.map(function (r) { return r.temperature; }), "#9a8c6e");
+      drawLine("ch-gini", rows.map(function (r) { return r.gini; }), "#5b7c8d");
+      drawBars("ch-deals", rows.map(function (r) { return r.deals; }), "#c99a3f");
+      drawBars("ch-settles", rows.map(function (r) { return r.settlements; }), "#4f7d5a");
+      if (rows.length) {
+        var t0 = rows[0], tN = rows[rows.length - 1];
+        document.getElementById("k-temp").textContent = tN.temperature == null ? "—" : Number(tN.temperature).toFixed(3) + " · " + (tN.regime || "");
+        document.getElementById("k-gini").textContent = tN.gini == null ? "—" : Number(tN.gini).toFixed(3);
+        document.getElementById("k-deals").textContent = fmt(tN.deals, 0);
+        document.getElementById("k-settles").textContent = fmt(tN.settlements, 0);
+        var mins = tN.ts && t0.ts ? Math.round((tN.ts - t0.ts) / 60000) : null;
+        document.getElementById("series-note").textContent = rows.length + " " + t("s4.span") + (mins != null ? (" · ~" + mins + " min") : "") + " · " + when(t0.ts) + " → " + when(tN.ts);
+      } else {
+        document.getElementById("series-note").textContent = lang === "zh" ? "档案暂无数据行。" : "No archive rows yet.";
+      }
+
+      // 05 活性
+      if (d.health) {
+        var hv = document.getElementById("v-health");
+        hv.textContent = d.health.ok ? "ok" : "degraded";
+        hv.style.color = d.health.ok ? "var(--ok)" : "var(--warn)";
+        document.getElementById("s-version").textContent = (d.health.name || "") + " · " + (d.health.version || "") + " · " + (d.health.chain || "");
+      }
+      var ageV = document.getElementById("v-age");
+      if (rows.length && rows[rows.length - 1].ts) {
+        ageV.textContent = ago(rows[rows.length - 1].ts);
+        ageV.style.color = (Date.now() - rows[rows.length - 1].ts) < 300000 ? "var(--ok)" : "var(--warn)";
+      } else { ageV.textContent = "—"; }
+      if (T && T.lifetime) document.getElementById("v-agents").textContent = fmt(T.lifetime.liveAgents, 0);
+      if (H && H.summary) {
+        document.getElementById("v-window").textContent = fmt(H.summary.ticks, 0);
+        document.getElementById("s-window").textContent = t("s.window") + " · " + when(H.summary.firstTs) + " → " + when(H.summary.lastTs);
+      }
+
+      // 06 证据流
+      var nets = T && Array.isArray(T.recentNets) ? T.recentNets : [];
+      var wrap = document.getElementById("nets-wrap");
+      if (!nets.length) {
+        wrap.innerHTML = '<div class="empty">' + t("s6.empty") + "</div>";
+      } else {
+        var html = '<table class="nets"><thead><tr><th>#</th><th>' + t("t.tx") + '</th><th>' + t("t.gross") + '</th><th>' + t("t.amount") + '</th><th>' + t("t.when") + "</th></tr></thead><tbody>";
+        for (var i = 0; i < nets.length; i++) {
+          var g = nets[i];
+          var tx = String(g.txHash || "");
+          html += "<tr><td>" + (i + 1) + '</td><td><a href="' + EXPLORER + "/tx/" + tx + '" target="_blank" rel="noopener">' + tx.slice(0, 10) + "…" + tx.slice(-6) + "</a></td><td>" + fmt(g.trades, 0) + "</td><td>" + usdc(g.amountUsdc) + "</td><td>" + when(g.ts) + "</td></tr>";
+        }
+        wrap.innerHTML = html + "</tbody></table>";
+      }
+    }
+
+    // ---- 画布（DPR 感知，无依赖）----
+    function setup(cv) {
+      var dpr = window.devicePixelRatio || 1;
+      var w = cv.clientWidth || 300, h = cv.clientHeight || 92;
+      if (cv.width !== w * dpr || cv.height !== h * dpr) { cv.width = w * dpr; cv.height = h * dpr; }
+      var ctx = cv.getContext("2d");
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+      return { ctx: ctx, w: w, h: h };
+    }
+    function drawLine(id, vals, color) {
+      var cv = document.getElementById(id); if (!cv) return;
+      var _a = setup(cv), ctx = _a.ctx, w = _a.w, h = _a.h;
+      var data = (vals || []).filter(function (v) { return v != null && isFinite(Number(v)); }).map(Number);
+      ctx.strokeStyle = "rgba(26,26,24,.14)"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, h - 1); ctx.lineTo(w, h - 1); ctx.stroke();
+      if (data.length < 2) { ctx.fillStyle = "rgba(26,26,24,.4)"; ctx.font = "11px IBM Plex Mono, monospace"; ctx.fillText("—", 6, 16); return; }
+      var lo = Math.min.apply(null, data), hi = Math.max.apply(null, data);
+      if (hi - lo < 1e-9) { lo -= 0.5; hi += 0.5; }
+      var pad = 6, iw = w - pad * 2, ih = h - pad * 2;
+      var x = function (i) { return pad + (i / (data.length - 1)) * iw; };
+      var y = function (v) { return pad + (1 - (v - lo) / (hi - lo)) * ih; };
+      ctx.strokeStyle = color; ctx.lineWidth = 1.6; ctx.lineJoin = "round";
+      ctx.beginPath();
+      for (var i = 0; i < data.length; i++) { i ? ctx.lineTo(x(i), y(data[i])) : ctx.moveTo(x(0), y(data[0])); }
+      ctx.stroke();
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(x(data.length - 1), y(data[data.length - 1]), 2.6, 0, Math.PI * 2); ctx.fill();
+    }
+    function drawBars(id, vals, color) {
+      var cv = document.getElementById(id); if (!cv) return;
+      var _a = setup(cv), ctx = _a.ctx, w = _a.w, h = _a.h;
+      var data = (vals || []).map(function (v) { return v == null ? 0 : Number(v) || 0; });
+      ctx.strokeStyle = "rgba(26,26,24,.14)"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, h - 1); ctx.lineTo(w, h - 1); ctx.stroke();
+      if (!data.length) { ctx.fillStyle = "rgba(26,26,24,.4)"; ctx.font = "11px IBM Plex Mono, monospace"; ctx.fillText("—", 6, 16); return; }
+      var hi = Math.max.apply(null, data);
+      if (hi <= 0) {
+        ctx.fillStyle = "rgba(26,26,24,.28)"; ctx.font = "10.5px IBM Plex Mono, monospace";
+        ctx.fillText(lang === "zh" ? "窗口内为 0" : "all zero in window", 6, 16); return;
+      }
+      var pad = 4, iw = w - pad * 2, ih = h - pad * 2 - 2, step = iw / data.length;
+      var bw = Math.max(1, Math.min(6, step * 0.6));
+      ctx.fillStyle = color;
+      for (var i = 0; i < data.length; i++) {
+        if (!data[i]) continue;
+        var bh = (data[i] / hi) * ih;
+        ctx.fillRect(pad + i * step + (step - bw) / 2, h - 2 - bh, bw, bh);
+      }
+    }
+
+    // ---- 自愈式自动刷新（60s；页面隐藏时暂停，回前台立即补一次）----
+    var timer = null;
+    function boot() { applyI18n(); refresh(); timer = setInterval(function () { if (!document.hidden) refresh(); }, 60000); }
+    document.addEventListener("visibilitychange", function () { if (!document.hidden) refresh(); });
+    window.addEventListener("resize", function () { if (last) render(last); });
+    boot();
+  })();
+  </script>
+</body>
+</html>

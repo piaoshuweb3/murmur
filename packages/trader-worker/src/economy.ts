@@ -554,6 +554,21 @@ const PICK_CANDIDATES = 5;               // pool size re-weighted inside the neu
 const FEUD_WORST_K = 5;                  // houseFeuds blend: how many of a pair's deepest bonds the "worst mean" averages (3→5: a broader grudge cluster can tip a house feud)
 /** How many neural-provenance receipts to keep published (newest first) for /proofs + the chain. */
 const PROOFS_CAP = 64;
+/** Settlement-latency ring size (canary page): last N mined nets sample verify→receipt wall-clock ms. */
+const SETTLE_LATENCY_RING_CAP = 64;
+
+/**
+ * p50/p95 over the latency ring (ms), nulls while the ring is empty — the canary page publishes an
+ * honest "no sample yet" instead of a zero. Pure + total: never throws on empty/odd input, and a
+ * single sample reports itself for both percentiles. Exported for the canary telemetry tests.
+ */
+export function settleLatencyPercentiles(ring: readonly number[]): { p50Ms: number | null; p95Ms: number | null; n: number } {
+  const n = ring.length;
+  if (n === 0) return { p50Ms: null, p95Ms: null, n: 0 };
+  const sorted = [...ring].sort((a, b) => a - b);
+  const at = (q: number): number => sorted[Math.min(n - 1, Math.max(0, Math.ceil(q * n) - 1))];
+  return { p50Ms: at(0.5), p95Ms: at(0.95), n };
+}
 // --- dynasty tuning (all deterministic; every collection is a hard cap so DO storage stays bounded) ---
 const HOUSE_CAP = 16;                   // simultaneous houses at most (older houses endure, no new names past it)
 const HOUSE_MEMBERS_CAP = 200;           // roster cap per house (a house is bounded memory, not a nation)
@@ -595,6 +610,11 @@ export class AgentEconomy {
   // so a success rate can be published WITHOUT a KEY_VERSION bump.
   private settleOk = 0;
   private settleFail = 0;
+  // Settlement latency (additive, canary page): wall-clock ms of each MINED net — verify() + settle()
+  // round-trip, measured at the only place a success can happen. A fixed-cap ring (CODE constant, no
+  // new var) keeps memory flat; /telemetry publishes p50/p95 over the ring. Never throws, never blocks:
+  // a missing sample just means the ring stays shorter.
+  private settleLatencies: number[] = [];
   private treasuryOutAtomic = "0";
   /**
    * WAR mirror (additive): cumulative EXTRA on-chain USDC levied as tax into the coffer's commons purse,
@@ -1004,6 +1024,8 @@ export class AgentEconomy {
         const payload = buildPaymentPayload({
           reqs, from: debtor.address, value: amountStr, nonce, nowSec: Math.floor(Date.now() / 1000),
         });
+        // Latency t0: the net's real wall-clock cost starts at the first on-chain round-trip (verify).
+        const settleT0 = Date.now();
         const verified = await this.facilitator.verify(payload, reqs);
         if (!verified.valid) {
           // A net that fails verification on-chain dents the debtor's reputation (light: rails can fail
@@ -1034,6 +1056,11 @@ export class AgentEconomy {
         this.volumeAtomic = addAtomic(this.volumeAtomic, amountStr);
         this.count++;
         this.settleOk++;
+        // Ring the mined net's latency (verify→receipt). Only successes sample the ring: a failed
+        // attempt's duration conflates backoff/retry noise with settlement cost, and the canary page
+        // must publish what a READER's settlement would have cost, not what a broken one did.
+        this.settleLatencies.push(Math.max(0, Date.now() - settleT0));
+        if (this.settleLatencies.length > SETTLE_LATENCY_RING_CAP) this.settleLatencies.shift();
         // The mined net IS the settled history reputation is made of: both sides keep the promise.
         this.rememberTrade(debtor.id, creditor.id, tickIndex);
         // Dynasty tithe: 2% of what the creditor just earned flows to its house treasury (no-op for a
@@ -2966,6 +2993,9 @@ export class AgentEconomy {
       count: this.count,
       settleOk: this.settleOk,
       settleFail: this.settleFail,
+      // Latency ring (additive, canary): bounded to SETTLE_LATENCY_RING_CAP at write time; old payloads
+      // restore as [] with no KEY_VERSION bump. Keeps p50/p95 continuous across DO evictions/deploys.
+      settleLatencies: this.settleLatencies,
       treasuryOutAtomic: this.treasuryOutAtomic,
       warTaxAtomic: this.warTaxAtomic,
       recent: this.recent,
@@ -3034,6 +3064,10 @@ export class AgentEconomy {
     this.count = Number(p.count ?? 0);
     this.settleOk = Number(p.settleOk ?? 0);
     this.settleFail = Number(p.settleFail ?? 0);
+    // Latency ring: restore only sane non-negative numbers, re-cap for safety (old payload ⇒ []).
+    this.settleLatencies = (Array.isArray(p.settleLatencies) ? p.settleLatencies : [])
+      .map((v: unknown) => Number(v)).filter((v: number) => Number.isFinite(v) && v >= 0)
+      .slice(-SETTLE_LATENCY_RING_CAP);
     this.treasuryOutAtomic = String(p.treasuryOutAtomic ?? "0");
     // WAR mirror: an older payload has no warTaxAtomic ⇒ "0" (no tax ever levied), KEY_VERSION stays v1.
     this.warTaxAtomic = /^\d+$/.test(String(p.warTaxAtomic ?? "")) ? String(p.warTaxAtomic) : "0";
@@ -3283,6 +3317,7 @@ export class AgentEconomy {
     daySpendUsdc: number;
     dayCapUsdc: number;
     lastNet: { txHash: string; trades: number; amountUsdc: number; ts: number } | null;
+    latency: { p50Ms: number | null; p95Ms: number | null; n: number };
   } {
     let pendingTrades = 0;
     let pendingAtomic = 0n;
@@ -3307,6 +3342,7 @@ export class AgentEconomy {
       daySpendUsdc: atomicToUsdc(this.spendGuard.globalAtomic || "0"),
       dayCapUsdc: this.cfg.dailyCapUsdc,
       lastNet,
+      latency: settleLatencyPercentiles(this.settleLatencies),
     };
   }
 

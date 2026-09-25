@@ -154,8 +154,9 @@ export default {
     }
 
     // ── 差异化层（自有实现）：上游把公开结算遥测独立成 /canary；我方把它并入"主权+遥测"信任总页
-    // /transparency.html#telemetry（六合约主权与结算遥测同框叙事）。/canary 301 永久跳转，老书签/上游
-    // 对比流量不 404。assets 目录故意不放 canary.html，否则静态命中会抢在 worker 之前。
+    // /transparency.html#telemetry（六合约主权与结算遥测同框叙事）。v1.5.2 起放行独立实时页：
+    // frontend/public/canary.html（七板块结算遥测，自有实现）由 assets 先行命中 /canary(/canary.html)，
+    // worker 这条 301 只兜底 assets 未命中的边缘情形（老书签/上游对比流量永不 404）。
     if (path === "/canary") {
       return new Response(null, {
         status: 301,

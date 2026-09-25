@@ -2,6 +2,15 @@
   "_comment": "murmur launch announcements — a static, hand-curated feed (no backend). The SPA shows the newest item the reader has not dismissed as a thin parchment strip; socials.x is a reserved seat in the topbar that only materialises when non-empty. Frequency discipline: one strip, no rotation. Dismissals expire after 14 days client-side, so old items resurface; a fresh id takes the stage immediately.",
   "items": [
     {
+      "id": "v152-canary-live",
+      "ts": 1790346961606,
+      "text": {
+        "en": "New: the Canary — a full-screen, read-only live board for x402 settlement telemetry (success rate, netting & gas amortisation, budget guardrail, time series, evidence stream). Open it from the bottom-right pill or /canary.",
+        "zh": "新章：金丝雀（Canary）全屏只读实时结算遥测面板上线——成功率、净扎与 gas 摊销、日预算护栏、时间序列与证据流。点击右下角胶囊或访问 /canary 即开。"
+      },
+      "link": "/canary"
+    },
+    {
       "id": "v151-verified-wallet",
       "ts": 1790313889041,
       "text": {

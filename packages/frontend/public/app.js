@@ -3622,7 +3622,9 @@ let annItem = null;
 async function initAnnouncements() {
   let data = null;
   try {
-    const res = await fetch("./announcements.json", { cache: "no-cache" });
+    // v=152 pins the feed URL to this release: zone-edge caches hold the bare URL until TTL (the
+    // account token cannot purge zones), so a versioned URL guarantees every reader the newest board.
+    const res = await fetch("./announcements.json?v=152", { cache: "no-cache" });
     if (res.ok) data = await res.json();
   } catch { data = null; }                 // failure is silent by design
   // the topbar SOCIAL seat is a RESERVED SEAT: announcements.json's socials decides whether it

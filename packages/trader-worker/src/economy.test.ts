@@ -11,7 +11,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { AgentEconomy, type EconomyConfig, type GoodKind, type Settlement } from "./economy.js";
+import { AgentEconomy, settleLatencyPercentiles, type EconomyConfig, type GoodKind, type Settlement } from "./economy.js";
 import type { FlyReading, CollectiveState } from "./population.js";
 import { usdcToAtomic, atomicToUsdc } from "./x402.js";
 
@@ -1378,4 +1378,31 @@ test("conquest: OFF ⇒ seizeZones is a no-op that returns [] and writes no zone
   const p = JSON.parse(econ.serialize());
   assert.equal(p.zoneControl, undefined, "OFF writes no top-level zoneControl block");
   assert.ok(p.dynasty.houses.every((h: Record<string, unknown>) => !("controlsZones" in h)), "OFF exposes no controlsZones on any house");
+});
+
+// ---------- canary telemetry: settleLatencyPercentiles (pure, honest nulls) ----------
+
+test("canary: latency percentiles — empty ring reports honest nulls, never a zero", () => {
+  const p = settleLatencyPercentiles([]);
+  assert.deepEqual(p, { p50Ms: null, p95Ms: null, n: 0 }, "no samples ⇒ p50/p95 null with n=0 (not 0ms)");
+});
+
+test("canary: latency percentiles — single sample reports itself for both percentiles", () => {
+  const p = settleLatencyPercentiles([420]);
+  assert.deepEqual(p, { p50Ms: 420, p95Ms: 420, n: 1 });
+});
+
+test("canary: latency percentiles — unordered input, p95 dominates p50, order-invariant", () => {
+  const a = settleLatencyPercentiles([900, 120, 300, 150, 2400]);
+  const b = settleLatencyPercentiles([2400, 150, 900, 120, 300]);
+  assert.equal(a.n, 5);
+  assert.equal(a.p50Ms, 300, "median of 5 sorted samples is the 3rd");
+  assert.equal(a.p95Ms, 2400, "p95 of 5 samples is the max");
+  assert.deepEqual(a, b, "percentiles are order-invariant (the ring is not sorted in place)");
+});
+
+test("canary: latency percentiles — does not mutate the caller's ring", () => {
+  const ring = [500, 100, 300];
+  settleLatencyPercentiles(ring);
+  assert.deepEqual(ring, [500, 100, 300], "the ring stays in arrival order (shift() eviction relies on it)");
 });

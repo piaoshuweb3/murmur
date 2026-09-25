@@ -61,7 +61,7 @@ echo "$H" | grep -q '"agent-economy-x402"'; chk $? "/health 特性面完整"
 S=$(curl -sS --max-time 20 "https://flyx402.xyz/state" 2>/dev/null)
 echo "$S" | grep -q '"mode":"onchain"'; chk $? "/state economy.mode=onchain（var 链未掉基线）"
 HTML=$(curl -sS --max-time 20 "https://flyx402.xyz/" 2>/dev/null)
-echo "$HTML" | grep -q 'app.js?v=72'; chk $? "首页资产已升级 v72（公告重现+编年史全量分页）"
+echo "$HTML" | grep -q 'app.js?v=74'; chk $? "首页资产已升级 v74（canary 公告版）"
 echo "$HTML" | grep -q 'netting-chip'; chk $? "netting 芯片已上首页"
 echo "$HTML" | grep -q 'redditTitle'; chk $? "Reddit seat 已上首页"
 P=$(curl -sS --max-time 20 "https://flyx402.xyz/proofs" 2>/dev/null)
@@ -73,7 +73,12 @@ echo "$T" | grep -q '"enabled":true'; chk $? "/telemetry 六指标遥测在线"
 BR=$(curl -sS --max-time 20 "https://flyx402.xyz/briefing?lang=zh" 2>/dev/null)
 echo "$BR" | grep -q 'flyx402 蝇群每日快讯'; chk $? "/briefing 中文快讯工厂在线"
 C=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 20 "https://flyx402.xyz/canary" 2>/dev/null)
-[ "$C" = "301" ]; chk $? "/canary 301 → 信任总页"
+[ "$C" = "200" ]; chk $? "/canary 独立实时页 200（v1.5.2 静态命中）"
+CAN=$(curl -sS --max-time 20 "https://flyx402.xyz/canary" 2>/dev/null)
+echo "$CAN" | grep -q '结算可靠性'; chk $? "/canary 七板块内容命中（01 结算可靠性）"
+echo "$CAN" | grep -q 'settleLatencies\|latency'; chk $? "/canary 页面就绪（无需后端字段预埋）"
+TL=$(curl -sS --max-time 20 "https://flyx402.xyz/telemetry" 2>/dev/null)
+echo "$TL" | grep -q '"latency"'; chk $? "/telemetry 已含 latency p50/p95（canary 后端增强）"
 PC=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 20 "https://flyx402.xyz/poem-card" 2>/dev/null)
 [ "$PC" = "200" ]; chk $? "/poem-card 诗分享卡在线"
 TP=$(curl -sS --max-time 20 "https://flyx402.xyz/transparency" 2>/dev/null)
@@ -82,7 +87,7 @@ AR=$(curl -sS --max-time 20 "https://flyx402.xyz/annals/archive?before=50&limit=
 echo "$AR" | grep -q '"archive":true'; chk $? "/annals/archive D1 深档分页在线"
 echo "$AR" | grep -q '"total":[0-9]'; chk $? "/annals/archive 全量计数返回"
 AN=$(curl -sS --max-time 20 "https://flyx402.xyz/announcements.json" 2>/dev/null)
-echo "$AN" | grep -q 'v15-trust-panel'; chk $? "公告新条目已上线（关闭 14 天过期机制）"
+echo "$AN" | grep -q 'v152-canary-live'; chk $? "公告新条目 v152-canary-live 已上线（新 id 强制上台）"
 
 echo "── 4. 冒烟（www + workers.dev 三路由）─────────────────────"
 C1=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 20 "https://www.flyx402.xyz/health" 2>/dev/null)
