@@ -2,6 +2,15 @@
   "_comment": "murmur launch announcements — a static, hand-curated feed (no backend). The SPA shows the newest item the reader has not dismissed as a thin parchment strip; socials.x is a reserved seat in the topbar that only materialises when non-empty. Frequency discipline: one strip, no rotation. Dismissals expire after 14 days client-side, so old items resurface; a fresh id takes the stage immediately.",
   "items": [
     {
+      "id": "v151-verified-wallet",
+      "ts": 1790313889041,
+      "text": {
+        "en": "MURMUR is now a verified token: source code confirmed on the Arc explorer, an official logo plus a one-click \"add to wallet\" button on the token chip, and the chronicle now loads its complete history automatically.",
+        "zh": "MURMUR 已完成合约验证：Arc 浏览器源码确权、代币芯片新增一键「添加到钱包」（带官方图标）、编年史现可自动全量载入。"
+      },
+      "link": "/transparency"
+    },
+    {
       "id": "v15-trust-panel",
       "ts": 1790272652000,
       "text": {
