@@ -8,7 +8,7 @@
   <title>murmur — a population of neural agents settling on arc</title>
   <meta name="description" content="murmur is a living population of fruit-fly nervous systems adrift on arc. it reads whole-chain activity, reduces it to a temperature, and the swarm reacts. each fly is an autonomous agent whose 10,800-neuron connectome decides what to buy and from whom, settling with its peers in real USDC on Arc mainnet over x402 — every payment a verifiable on-chain transaction. no LLM, just neurons paying each other for real." />
 
-  <link rel="stylesheet" href="./styles.css?v=73" />
+  <link rel="stylesheet" href="./styles.css?v=74" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><g fill='%231a1a18'><circle cx='12' cy='14' r='3.1'/><circle cx='20.5' cy='11.5' r='2.3'/><circle cx='17.5' cy='21' r='1.9'/></g></svg>" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -161,6 +161,17 @@
   <!-- ============ chronicle trigger (bottom-right) — the historian is no longer a permanent panel:
          one button opens it as a full-height drawer, pure read-out as ever ============ -->
   <button class="chron-btn" id="chron-btn" type="button" data-i18n-title="chron.openTitle" title="The deterministic historian's chronicle — eras, the narrative timeline, the ledger of grudges, houses &amp; monuments. Every line re-derivable in your browser; no LLM ever wrote one"><span class="chron-orn" aria-hidden="true">⚜</span><span class="chron-word" data-i18n="chron.word">Chronicle</span><span class="chron-badge" id="chron-badge" hidden data-i18n="chron.badge">entries inscribed</span></button>
+
+  <!-- ============ chronicle ticker (bottom-left strip): the realm heard, not read. One engraved slot
+         crossfading between the freshest annals sentences; click = open the chronicle drawer.
+         Zero extra fetches — reuses the /annals poll buffer the drawer already maintains. ============ -->
+  <div class="chron-ticker" id="chron-ticker" hidden role="marquee" aria-label="chronicle ticker — the freshest annals, rebroadcast / 编年史滚动条 — 最新史册条目转播">
+    <button class="chron-ticker-item" id="chron-ticker-item" type="button" data-i18n-title="chron.openTitle" title="The deterministic historian's chronicle — open the full timeline / 打开完整编年史">
+      <span class="chron-ticker-orn" aria-hidden="true">⚜</span>
+      <span class="chron-ticker-seq" id="chron-ticker-seq" aria-hidden="true"></span>
+      <span class="chron-ticker-text" id="chron-ticker-text"></span>
+    </button>
+  </div>
 
   <!-- ============ the chronicle drawer (slides in from the right edge) ============ -->
   <aside class="drawer panel-chron" id="panel-chron" hidden data-i18n-aria="chron.title" aria-label="the chronicle">
@@ -534,6 +545,6 @@
     </div>
   </aside>
 
-  <script src="./app.js?v=74" type="module"></script>
+  <script src="./app.js?v=75" type="module"></script>
 </body>
 </html>

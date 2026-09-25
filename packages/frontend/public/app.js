@@ -3568,6 +3568,48 @@ function sgStop() {
 window.addEventListener("resize", () => { if (SG.open) { sgMeasure(); sgDraw(); } });
 
 // ================= the chronicle drawer (opened from the bottom-right button) =================
+// ================= chronicle ticker (bottom-left strip) =================
+// The realm heard, not read: one engraved slot crossfading between the freshest annals sentences.
+// Own implementation — the persistent-presence idea re-expressed in our design language (a calm
+// single slot instead of a marquee track). Zero extra fetches: it reads the same /annals poll
+// buffer (chronRows) the drawer already maintains, and clicks through to the full chronicle.
+const TICKER_SLOTS = 8;          // how many recent entries participate in the rotation
+const TICKER_PERIOD_MS = 7000;   // one sentence every 7s — calm, never strobing
+let tickerItems = [];            // [{seq, text}] newest first
+let tickerIdx = 0;
+let tickerTimer = null;
+
+/** Bilingual display exactly as the annals volume does: rebuild from tokens, fall back to canonical English. */
+function tickerText(e) {
+  try {
+    const lg = currentLang();
+    if (lg && lg !== "en") { const t = ct(e.kind, e.tokens, lg); if (t) return t; }
+  } catch { /* i18n not ready — canonical English is always there */ }
+  return e.text || "";
+}
+
+/** Rebuild the rotation list from the freshest poll; start the timer once, never per-poll. */
+function renderChronTicker() {
+  const bar = $("chron-ticker"); if (!bar) return;
+  if (!chronEnabled || !chronRows.length) { bar.hidden = true; return; }
+  bar.hidden = false;
+  tickerItems = chronRows.slice(0, TICKER_SLOTS).map((e) => ({ seq: e.seq, text: tickerText(e) }));
+  if (!tickerTimer) { showTickerSlot(); tickerTimer = setInterval(showTickerSlot, TICKER_PERIOD_MS); }
+}
+
+/** Paint one slot: seq ornament + the sentence, with a restartable crossfade. */
+function showTickerSlot() {
+  if (!tickerItems.length) return;
+  const el = $("chron-ticker-text"), sq = $("chron-ticker-seq");
+  if (!el) return;
+  const it = tickerItems[tickerIdx % tickerItems.length]; tickerIdx++;
+  if (sq) sq.textContent = it.seq != null ? "no." + it.seq : "";
+  el.classList.remove("is-in");            // restart the crossfade
+  void el.offsetWidth;                     // reflow so the animation re-arms
+  el.textContent = it.text;
+  el.classList.add("is-in");
+}
+
 // Poll /annals — the deterministic historian's timeline. The poll runs whether or not the drawer is open,
 // so the sheet is never stale when the button pulls it in: era badge, entry list, and the browser-side
 // verdict if a proof has been run.
@@ -3591,12 +3633,14 @@ async function pollChron() {
       if (chronSeenSeq > 0) for (const e of chronRows) { if ((e.seq || 0) <= chronSeenSeq) break; spawnChronFx(e); }
       renderChron();
       renderEraHud();            // the gilded plaque follows the same poll (eraName + optional civLevel)
+      renderChronTicker();       // the bottom-left strip rebroadcasts the freshest sentences from this same poll
       renderFaithSection();      // faith re-reads these rows; it hides itself unless flagged on
       if (chronVerifyState) renderChronVerdict();
     } else {
       chronEnabled = false;
       renderChron();
       renderEraHud();
+      renderChronTicker();
       renderFaithSection();
     }
   } catch { /* best-effort: the chronicle is a nicety, never block the scene */ }
@@ -6358,6 +6402,7 @@ function bindUI() {
   const hb = $("hist-btn"); if (hb) hb.addEventListener("click", toggleHistory);
   const hc = $("hist-close"); if (hc) hc.addEventListener("click", closeHistory);
   const crb = $("chron-btn"); if (crb) crb.addEventListener("click", toggleChron);
+  const ctk = $("chron-ticker-item"); if (ctk) ctk.addEventListener("click", toggleChron);   // ticker → the full chronicle
   const crc = $("chron-close"); if (crc) crc.addEventListener("click", closeChron);
   const cbk = $("chron-back"); if (cbk) cbk.addEventListener("click", backChronRail);   // two-stage codex: fold back to the rail
   const ehud = $("era-hud"); if (ehud) ehud.addEventListener("click", openChron);       // the plaque opens the codex

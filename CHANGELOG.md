@@ -16,6 +16,14 @@ All notable changes to **murmur** are documented in this file. The format is bas
 
 ## [Unreleased] — P0/P1 sync (2026-09-24)
 
+### Added — v1.5.3 chronicle ticker (2026-09-25, frontend-only, zero new vars)
+- **The chronicle ticker** (`chron-ticker`, bottom strip right-anchored): one engraved slot crossfading
+  between the freshest annals sentences — the realm heard, not read. Own implementation of the persistent-presence
+  idea (a calm single slot instead of a marquee track). Zero extra fetches: reuses the `/annals` poll buffer the
+  drawer already maintains; bilingual display re-derives from tokens exactly as the annals volume does; click
+  opens the full chronicle drawer. Folds away under 980px and honors `prefers-reduced-motion`. Assets bumped
+  `styles.css?v=74` / `app.js?v=75`.
+
 ### Added (P1 sync — upstream-mechanism-inspired, own implementations; ALL flag-gated, default OFF)
 - **⑲ The Bourse (`BOURSE_ENABLED`)**: one READ-ONLY `eth_getLogs` per cron over OUR MURMUR token's Transfer
   logs → `BourseMeter` folds a 0..1 tape FEVER against slow EWMA baselines and edge-detects four narratable

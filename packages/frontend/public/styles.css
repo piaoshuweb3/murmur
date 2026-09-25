@@ -1818,3 +1818,41 @@ html[dir="rtl"] .ann-text { direction: rtl; }
 /* the reserved seats (social + netting) must really disappear while unclaimed:
    display:inline-flex beats the UA default for the attribute, so force it. */
 .x-link[hidden], .netting-chip[hidden] { display: none; }
+
+/* ============ chronicle ticker (bottom strip, right-anchored) — the realm heard, not read ============
+   One engraved slot crossfading between the freshest annals sentences. Own implementation:
+   a single calm slot instead of a marquee track — same persistent-presence idea, our design
+   language. Sits on the bottom control row's baseline, in the free canvas band between the
+   era plaque (bottom-centre) and the chronicle button (bottom-right). */
+.chron-ticker {
+  position: fixed; z-index: 5; right: calc(var(--pad) + 252px); bottom: var(--pad);
+  max-width: 360px;
+  pointer-events: none;             /* the inner button re-enables interaction */
+}
+.chron-ticker[hidden] { display: none; }
+.chron-ticker-item {
+  pointer-events: auto;
+  display: flex; align-items: baseline; gap: 9px;
+  max-width: 100%;
+  padding: 9px 16px 9px 13px;
+  font-family: var(--mono); font-size: 11.5px; line-height: 1.45;
+  color: var(--paper);
+  background: color-mix(in srgb, var(--ink) 88%, transparent);
+  border: 1px solid rgba(var(--accent-rgb), 0.42);
+  border-radius: 3px 12px 3px 12px;
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
+  cursor: pointer; text-align: left;
+  transition: border-color .25s ease, filter .25s ease;
+}
+.chron-ticker-item:hover { border-color: rgba(var(--accent-rgb), 0.85); filter: brightness(1.12); }
+.chron-ticker-orn { color: rgba(var(--accent-rgb), 0.9); flex: none; }
+.chron-ticker-seq { flex: none; opacity: 0.62; font-size: 10px; letter-spacing: 0.04em; }
+.chron-ticker-text {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; opacity: 0.94;
+}
+.chron-ticker-text.is-in { animation: chron-ticker-in .7s ease both; }
+@keyframes chron-ticker-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 0.94; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .chron-ticker-text.is-in { animation: none; opacity: 0.94; } }
+/* narrow stages: the corner stack owns the bottom edge — fold the ticker away */
+@media (max-width: 980px) { .chron-ticker { display: none; } }
