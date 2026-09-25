@@ -1754,7 +1754,7 @@ function renderTerritoryMap() {
   // structural-only key: field size / DPR / era / which houses are present — NOT the volatile living-member
   // tally, so routine births & deaths never force a full (heavy) map repaint. Seats are name-deterministic;
   // the small per-capital tally just reflects the last structural composition.
-  const key = VW + "x" + VH + "@" + DPR + ":" + ((chronMeta && chronMeta.eraName) || "") + ":" + pol.map((o) => o.p.name).join(",") + ":" + territorySeizureSig;
+  const key = VW + "x" + VH + "@" + DPR + ":" + ((chronMeta && chronMeta.eraName) || "") + ":" + ((chronMeta && chronMeta.eraRegime) || "") + ":" + pol.map((o) => o.p.name).join(",") + ":" + territorySeizureSig;
   if (!terrOff || terrKey !== key) {
     if (!terrOff) { terrOff = document.createElement("canvas"); terrOffCtx = terrOff.getContext("2d"); }
     const w = Math.round(VW * DPR), h = Math.round(VH * DPR);
@@ -1767,10 +1767,101 @@ function renderTerritoryMap() {
   ctx.drawImage(terrOff, 0, 0, VW, VH);
 }
 
-/** Actually draw the dominions onto a target context `g` (the offscreen): fills + engraved hatch → rivers
- *  → ink double borders → capitals + serif names sized by strength → the bottom-left map key. */
+/** Actually draw the dominions onto a target context `g` (the offscreen): the era's climate wash → fills +
+ *  engraved hatch → rivers → trade roads → ink double borders → hamlets + capitals + serif names sized by
+ *  strength → the flank map key. */
+/** ⑮ the climate of the age: a soft wash that dyes the continent by the era's regime — cold ages read slate,
+ *  hot ages read ember, calm ages barely warm the parchment. Baked into the static map (the cache key carries
+ *  eraRegime), so it costs nothing per frame. Own implementation — the upstream era-tint idea re-expressed
+ *  over our parchment base. */
+function eraClimateWash(g) {
+  const reg = chronMeta && chronMeta.eraRegime ? String(chronMeta.eraRegime).toUpperCase() : "";
+  const tint = reg === "COLD" ? [96, 122, 148] : reg === "HOT" ? [176, 84, 48] : reg === "CALM" ? [188, 168, 96] : null;
+  if (!tint) return;
+  g.fillStyle = rgba(tint, reg === "CALM" ? 0.05 : 0.085);
+  g.fillRect(0, 0, VW, VH);
+}
+
+/** ⑯ the trade roads: a nearest-neighbour chain across the houses' seats (biggest first) plus a grand trunk
+ *  between the two greatest houses. Each leg is a quadratic arc bent deterministically off the axis, drawn as
+ *  a sunken dark track under a dashed gold over-stroke — the dust of cart traffic. Baked into the static map;
+ *  endpoints are trimmed so no road pokes through a capital dot. Own implementation. */
+function drawTradeRoads(g, pol) {
+  if (pol.length < 2) return;
+  const pts = pol.map((o) => o.seat);
+  // nearest-neighbour chain from the greatest house — a road network that reads as organic, not planned
+  const visited = new Set([0]); const chain = [0];
+  while (chain.length < pts.length) {
+    const from = chain[chain.length - 1];
+    let best = -1, bd = Infinity;
+    for (let i = 0; i < pts.length; i++) {
+      if (visited.has(i)) continue;
+      const d = Math.hypot(pts[i].x - pts[from].x, pts[i].y - pts[from].y);
+      if (d < bd) { bd = d; best = i; }
+    }
+    chain.push(best); visited.add(best);
+  }
+  const legs = [];
+  for (let k = 0; k < chain.length - 1; k++) legs.push([chain[k], chain[k + 1], 0]);
+  if (chain[1] !== 1) legs.push([0, 1, 1]);      // the grand trunk between the two greatest, if not already a leg
+  for (const [a, b, trunk] of legs) {
+    const A = pts[a], B = pts[b];
+    const dx = B.x - A.x, dy = B.y - A.y, L = Math.hypot(dx, dy) || 1;
+    const h = fnv1a(pol[a].p.name + "~" + pol[b].p.name);
+    const bend = (0.10 + 0.14 * (((h >>> 5) % 1000) / 1000)) * ((h & 1) ? 1 : -1);
+    const cx = (A.x + B.x) / 2 - dy * bend, cy = (A.y + B.y) / 2 + dx * bend;
+    const trim = (P) => {
+      const vx = cx - P.x, vy = cy - P.y, vl = Math.hypot(vx, vy) || 1;
+      return { x: P.x + vx / vl * 9, y: P.y + vy / vl * 9 };
+    };
+    const A2 = trim(A), B2 = trim(B);
+    g.beginPath(); g.moveTo(A2.x, A2.y); g.quadraticCurveTo(cx, cy, B2.x, B2.y);
+    g.strokeStyle = rgba(INK, trunk ? 0.15 : 0.10); g.lineWidth = trunk ? 3.2 : 2.1; g.stroke();
+    g.setLineDash([5, 4]);
+    g.strokeStyle = rgba(GILT, trunk ? 0.5 : 0.32); g.lineWidth = trunk ? 1.3 : 0.9; g.stroke();
+    g.setLineDash([]);
+  }
+}
+
+/** One hamlet glyph: a lime-washed two-vector house (walls + roof), readable at 3-6 px. */
+function hamletGlyph(g, x, y, s, color) {
+  g.beginPath();
+  g.moveTo(x - s, y + s * 0.6); g.lineTo(x - s, y - s * 0.1); g.lineTo(x, y - s * 0.9);
+  g.lineTo(x + s, y - s * 0.1); g.lineTo(x + s, y + s * 0.6); g.closePath();
+  g.fillStyle = rgba(mix(color, [248, 244, 236], 0.35), 0.9);
+  g.fill();
+  g.strokeStyle = rgba(INK, 0.5); g.lineWidth = 0.7; g.stroke();
+}
+
+/** ⑰ the settlements: deterministic hamlet clusters around each capital — one glyph per living member
+ *  (capped), placed by name-hashed polar coordinates inside the house's own ring, with hash-retry on
+ *  collision. Deterministic ⇒ baked into the static map like everything else. Own implementation. */
+function drawHamlets(g, o) {
+  const p = o.p, s = o.seat;
+  const count = Math.min(11, 1 + o.n);
+  let Rm = 0; for (const pt of o.ring) Rm += Math.hypot(pt.x - s.x, pt.y - s.y);
+  Rm /= (o.ring.length || 1);
+  const placed = [];
+  for (let k = 0; k < count; k++) {
+    let px = 0, py = 0, ok = false;
+    for (let t = 0; t < 7 && !ok; t++) {
+      const h = fnv1a(p.name + ":ham:" + k + ":" + t);
+      const a = ((h >>> 3) % 1000) / 1000 * TAU;
+      const rr = Rm * (0.34 + 0.36 * (((h >>> 13) % 1000) / 1000));
+      px = s.x + Math.cos(a) * rr; py = s.y + Math.sin(a) * rr;
+      ok = Math.hypot(px - s.x, py - s.y) > 9 && placed.every((q) => Math.hypot(px - q[0], py - q[1]) > 8);
+    }
+    if (!ok) continue;
+    placed.push([px, py]);
+    const size = (2.6 + Math.min(2.2, o.n * 0.35)) * (1 - (k / count) * 0.4);
+    hamletGlyph(g, px, py, size, p.color);
+  }
+}
+
 function paintTerritoryMap(g, pol) {
   const seats = pol.map((o) => o.seat);
+  // 0) the climate of the age dyes the whole continent before anything is drawn on it
+  eraClimateWash(g);
   // 1) territory fills + engraved diagonal hatch
   for (let i = 0; i < pol.length; i++) {
     const o = pol[i], p = o.p;
@@ -1783,6 +1874,8 @@ function paintTerritoryMap(g, pol) {
   }
   // 2) the two meandering rivers run across the dominions
   drawRivers(g);
+  // 2.5) the trade roads sink under the towns and borders they connect
+  drawTradeRoads(g, pol);
   // 3) ink double-line borders, drawn over fills + rivers so the map reads crisp
   g.lineJoin = "round";
   for (const o of pol) {
@@ -1795,9 +1888,10 @@ function paintTerritoryMap(g, pol) {
       traceBlob(g, p._scr.P); g.stroke(); g.restore();
     }
   }
-  // 4) capital dot + serif house name (bigger houses get bigger type, like the ref) + strength tally
+  // 4) capital dot + hamlet cluster + serif house name (bigger houses get bigger type, like the ref) + strength tally
   for (const o of pol) {
     const p = o.p, s = o.seat;
+    drawHamlets(g, o);
     const capR = 3.2 + Math.min(4.5, o.n * 0.7);
     g.beginPath(); g.arc(s.x, s.y, capR, 0, TAU);
     g.fillStyle = rgba(INK, 0.92); g.fill();
@@ -1825,7 +1919,7 @@ function paintTerritoryMap(g, pol) {
 function drawTerritoryLegend(g, pol) {
   const ranked = pol.slice(0, 6);
   const era = (chronMeta && chronMeta.eraName) ? chronMeta.eraName : "the swarm's dominions";
-  const pad = 12, lh = 16, w = 180, h = pad * 2 + lh * (ranked.length + 1);
+  const pad = 12, lh = 16, w = 180, h = pad * 2 + lh * (ranked.length + 2);
   // the bottom-left is claimed by the temperature DOM panel and the bottom-right by the chronicle button,
   // so the map key lives in the clear band on the right flank, vertically centred (never under a panel).
   const bx = VW - w - 16, by = Math.round((VH - h) / 2);
@@ -1843,6 +1937,9 @@ function drawTerritoryLegend(g, pol) {
     g.font = "600 11px Georgia, serif"; g.fillStyle = rgba(INK, 0.85);
     g.fillText(ranked[i].p.name + "  ·  " + ranked[i].n, bx + pad + 16, y);
   }
+  // the key's last line: what the small glyphs on the map mean (settlements + trade roads)
+  g.font = "500 10px Georgia, serif"; g.fillStyle = rgba(INK, 0.62);
+  g.fillText(T("map.legend"), bx + pad, by + pad + lh * (ranked.length + 1.5));
   g.restore();
 }
 

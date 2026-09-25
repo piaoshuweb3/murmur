@@ -16,6 +16,22 @@ All notable changes to **murmur** are documented in this file. The format is bas
 
 ## [Unreleased] — P0/P1 sync (2026-09-24)
 
+### Added — v1.6 the civilization layer (2026-09-25, frontend-only, zero new vars)
+- **⑮ the climate of the age (`eraClimateWash`)**: the territory map's continent is dyed by the era's regime —
+  cold ages read slate, hot ages read ember, calm ages barely warm the parchment. Baked into the static map
+  (`eraRegime` joins the cache key), zero per-frame cost. Own implementation of the upstream era-tint idea.
+- **⑯ the trade roads (`drawTradeRoads`)**: a nearest-neighbour chain across the houses' seats (greatest first)
+  plus a grand trunk between the two greatest houses; each leg a deterministically-bent quadratic arc drawn as
+  a sunken dark track under a dashed gold over-stroke. Endpoints trimmed so no road pokes through a capital.
+- **⑰ the settlements (`drawHamlets`)**: deterministic hamlet clusters around each capital — one lime-washed
+  house glyph per living member (capped at 11), name-hashed polar placement inside the house's own ring with
+  hash-retry on collision.
+- **the map key grows a legend line** (`map.legend`, all seven languages): "hamlet ▪ · trade road ⌇".
+- Honest empty state: no houses exist until the first hatch founds one (post-funding breeding), so on today's
+  pre-funding mainnet the map stays as it always was — the layer lights up with the dynasty, not before.
+- Verified end-to-end with a mocked /economy roster (4 houses × 15 agents): dominions, roads, hamlets, era
+  wash and legend all render with zero console errors; assets bumped `app.js?v=76`.
+
 ### Added — v1.5.3 chronicle ticker (2026-09-25, frontend-only, zero new vars)
 - **The chronicle ticker** (`chron-ticker`, bottom strip right-anchored): one engraved slot crossfading
   between the freshest annals sentences — the realm heard, not read. Own implementation of the persistent-presence
