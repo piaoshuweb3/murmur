@@ -6691,6 +6691,10 @@ const ARENA_SEL_PAYOUT = "0x0523f1c3";   // payoutFor(uint256,address)
 const ARENA_SEL_BETS = "0xf644b3bb";     // bets(uint256,address)
 const ARENA_SIDE_UP = 1, ARENA_SIDE_DOWN = 2;
 const ARENA_OUTCOME = { 0: "pending", 1: "UP \u25b2", 2: "DOWN \u25bc", 3: "FLAT", 4: "REFUND" };
+/** v1.6.2 honest state: the resolver announced a round id but never opened it on-chain yet (cron broadcasts
+ * the open; a dry gas wallet or a transient RPC error leaves it unopened). NOT the same as "closed" — the
+ * old UI rendered "closes in 0m 00s" and hid the bet buttons, which read as a dead page. Name the state. */
+const arenaUnopened = (c) => !!(c && !c.opened && !c.resolved && Number(c.secondsToDeadline || 0) <= 0);
 
 // ---- ABI word helpers: 32-byte big-endian hex (no 0x) + 18-dec MURMUR conversions ----
 const wordAddr = (a) => String(a).replace(/^0x/i, "").toLowerCase().padStart(64, "0");
@@ -7014,6 +7018,7 @@ function arenaBookCard(d) {
     html += `<p class="ar-empty">no live round right now. ${d.armed ? "the resolver opens a new one each cron." : "the resolver isn't armed on this deployment, so rounds aren't opening yet."}</p>`;
     card.innerHTML = html; return card;
   }
+  const unopened = arenaUnopened(c);
   const up = Number(c.poolUpMur || 0), down = Number(c.poolDownMur || 0), tot = up + down;
   const upPct = tot > 0 ? (up / tot) * 100 : 50, downPct = tot > 0 ? 100 - upPct : 50;
   const oc = ARENA_OUTCOME[c.outcome] || "";
@@ -7021,8 +7026,13 @@ function arenaBookCard(d) {
     `<div class="ar-round">round <b>#${c.roundId}</b> \u00b7 ` +
       (c.resolved
         ? `<span class="ar-outcome ${String(oc).toLowerCase().replace(/[^a-z]/g, "")}">${oc}</span>`
-        : `closes in <b id="ar-countdown">${arenaClock(c.secondsToDeadline)}</b>`) +
+        : unopened
+          ? `<span class="ar-outcome pending">awaiting on-chain open</span>`
+          : `closes in <b id="ar-countdown">${arenaClock(c.secondsToDeadline)}</b>`) +
     `</div>` +
+    (unopened
+      ? `<p class="ar-empty">the resolver hasn't opened this round on-chain yet. if this persists across crons, the facilitator wallet is likely out of Arc gas (USDC) \u2014 betting unlocks automatically once it's funded.</p>`
+      : ``) +
     `<div class="ar-pools">` +
       `<div class="ar-pool up"><span class="ar-side">\u25b2 up</span><span class="ar-amt">${fmtMur(up)}</span></div>` +
       `<div class="ar-pool down"><span class="ar-side">\u25bc down</span><span class="ar-amt">${fmtMur(down)}</span></div>` +
@@ -7087,6 +7097,8 @@ function arenaYouCard(d) {
       `<div class="ar-fine">betting the same side again adds to your stake; the opposite side is rejected by the contract. Approve + bet are two wallet prompts the first time.</div>`;
   } else if (c && c.resolved) {
     html += `<div class="ar-closed">round #${c.roundId} is closed \u2014 ${ARENA_OUTCOME[c.outcome] || "resolved"}. a new round opens next cron.</div>`;
+  } else if (arenaUnopened(c)) {
+    html += `<div class="ar-closed">round #${c.roundId} is waiting to open on-chain \u2014 no betting window yet. if this persists across crons, the resolver's gas wallet needs funding.</div>`;
   } else {
     html += `<div class="ar-closed">no live betting window right now.</div>`;
   }

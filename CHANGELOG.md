@@ -16,6 +16,14 @@ All notable changes to **murmur** are documented in this file. The format is bas
 
 ## [Unreleased] — P0/P1 sync (2026-09-24)
 
+### Fixed — v1.6.2 the honest arena (2026-09-26, frontend-only, zero new vars)
+- **arena unopened-round honest state (`arenaUnopened` + book/you cards)**: when the resolver announces a round
+  id but hasn't opened it on-chain yet (dry gas wallet, transient RPC), the book card no longer renders a
+  misleading "closes in 0m 00s" countdown — it names the state ("awaiting on-chain open") with the funding
+  explanation, and the your-position card says the round is waiting to open instead of a bare
+  "no live betting window". Betting buttons still only render for a genuinely live window; they reappear
+  automatically the cron after the resolver can broadcast again.
+
 ### Added — v1.6.1 the gazetteer & the age rules (2026-09-26, frontend-only, zero new vars)
 - **⑱ the named places (`renderCitiesSection` + `hamletName`)**: the chronicle codex grows a `The Named Places`
   volume — the dominion map's own gazetteer. Every seat and every hamlet glyph drawn on the territory map has a
