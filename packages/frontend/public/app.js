@@ -2475,7 +2475,7 @@ function applyEconomy(econ) {
   refreshBalanceScale();
   if (econ.totals) { econTotals = econ.totals; updateEconHud(econ.totals); }
   if (econ.social) { econSocial = econ.social; renderSocialSection(); rebuildSocieties(); sgMarkDirty(); }
-  if (econ.dynasty) { econDynasty = econ.dynasty; renderDynastySection(); rebuildGraveField(); }
+  if (econ.dynasty) { econDynasty = econ.dynasty; renderDynastySection(); renderCitiesSection(); rebuildGraveField(); }
   if (econ.culture) { econCulture = econ.culture; renderCultureSection(); }
   if (econ.commons) { econCommons = econ.commons; renderCommonsSection(); }
   if (Array.isArray(econ.lastTick)) spawnPaymentEdges(econ.lastTick);
@@ -2831,6 +2831,53 @@ function renderDynastySection() {
   }
 }
 
+// ================= ⑱ the named places (in the chronicle panel) =================
+// The dominion map's own gazetteer: every seat + hamlet glyph drawn on the territory map has a name in
+// this volume, derived DETERMINISTICALLY from the house's name with the same fnv1a hash family the map
+// uses to place the glyphs — so the codex and the map can never disagree, and nothing is stored anywhere
+// (names cost zero bytes on the server; they are re-derived from the same seed on every render).
+// Pure read-out of /dynasty; honest empty state: no houses ⇒ no places ⇒ the volume stays blank.
+const HAMLET_SUFFIX = ["Stead", "Ford", "Mere", "Holt", "Wick", "Shaw", "Barrow", "Cross", "Moor", "Fen", "Burn", "Field", "Wold", "Dell"];
+function hamletName(house, k, used) {
+  for (let t = 0; t < 7; t++) {                    // hash-retry on duplicate suffix, like the glyph placement
+    const h = fnv1a(house + ":place:" + k + ":" + t);
+    const suf = HAMLET_SUFFIX[h % HAMLET_SUFFIX.length];
+    if (!used.has(suf)) { used.add(suf); return house + " " + suf; }
+  }
+  return house + " " + HAMLET_SUFFIX[fnv1a(house + ":place:" + k) % HAMLET_SUFFIX.length];
+}
+function renderCitiesSection() {
+  const host = $("chron-cities");
+  if (!host) return;
+  const houses = (econDynasty && econDynasty.houses) || [];
+  if (!houses.length) { host.hidden = true; return; }
+  host.hidden = false;
+  const body = $("cities-body"), census = $("cities-census");
+  if (!body) return;
+  body.textContent = "";
+  const sorted = houses.slice().sort((a, b) => (Number(b.live) || 0) - (Number(a.live) || 0) || (a.name < b.name ? -1 : 1));
+  let places = 0, minds = 0;
+  for (const h of sorted.slice(0, 8)) {
+    const live = Math.max(0, Number(h.live) || 0);
+    const seat = document.createElement("div");
+    seat.className = "cit-seat";
+    seat.style.setProperty("--house-c", houseColor(h.name) || "var(--accent)");
+    seat.textContent = T("cities.seat", { sigil: h.sigil || "⌂", name: h.name, live, gen: h.gen || 1, tick: h.foundedTick ?? "—" });
+    body.appendChild(seat);
+    const used = new Set();
+    const n = Math.min(11, 1 + live);              // the map draws min(11, 1+live) glyphs — the codex names exactly those
+    for (let k = 0; k < n; k++) {
+      const row = document.createElement("div");
+      row.className = "cit-hamlet";
+      row.textContent = "▪ " + hamletName(h.name, k, used);
+      row.title = T("cities.hamlet", { house: h.name });
+      body.appendChild(row);
+    }
+    places += 1 + n; minds += live;
+  }
+  if (census) census.textContent = T("cities.census", { places, minds });
+}
+
 // ================= institutions section (in the wallets drawer) =================
 // The tape: what the deterministic order-book marked each good at over the last crons, who does what for
 // a living, and the state of credit. Pure read-out of the economy's market block — nothing here feeds back
@@ -3081,7 +3128,7 @@ function openWallets() {
     if (!e) return;
     if (Array.isArray(e.agents)) applyEconAgents(e.agents);
     if (e.social) { econSocial = e.social; renderSocialSection(); renderWallets(); sgMarkDirty(); }
-    if (e.dynasty) { econDynasty = e.dynasty; renderDynastySection(); renderWallets(); }
+    if (e.dynasty) { econDynasty = e.dynasty; renderDynastySection(); renderCitiesSection(); renderWallets(); }
     if (e.market) { econMarket = e.market; renderMarketSection(); }
     if (e.culture) { econCulture = e.culture; renderCultureSection(); }
     if (e.commons) { econCommons = e.commons; renderCommonsSection(); }
@@ -4301,17 +4348,39 @@ function renderChron() {
     if (foot) foot.textContent = T("chron.footThreshold");
     return;
   }
+  // ⑯.1 ERA DIVIDERS: a parchment rule wherever the age turns. Every entry carries the era it
+  // happened in; era NAMES are recovered from the era-opening entries' own tokens (plus the live
+  // meta for the current age), so the codex labels each block from the chronicle itself — nothing
+  // is hard-coded, nothing is invented, and the deep archive deepens the labels as it loads.
+  const eraNames = new Map();
+  for (const r of chronRows) {
+    const tk = r.tokens || {};
+    const nm = typeof tk.eraName === "string" ? tk.eraName : "";
+    if (nm) eraNames.set(Number.isFinite(Number(tk.era)) ? Number(tk.era) : r.era, nm);
+  }
+  if (chronMeta && chronMeta.eraName) eraNames.set(chronMeta.era, chronMeta.eraName);
+  const eraRoman = (n) => {
+    if (!n || n <= 0) return String(n ?? "");
+    const m = [[1000,"M"],[900,"CM"],[500,"D"],[400,"CD"],[100,"C"],[90,"XC"],[50,"L"],[40,"XL"],[10,"X"],[9,"IX"],[5,"V"],[4,"IV"],[1,"I"]];
+    let out = "", rest = n; for (const [v, s] of m) while (rest >= v) { out += s; rest -= v; } return out;
+  };
+  let prevEra = null;
   const html = chronRows.map((e) => {
     const icon = CHRON_ICONS[e.kind] || "·";
     const ago = e.ts ? chronTimeAgo(e.ts) : "";
     const actors = Array.isArray(e.actors) && e.actors.length ? ` · #${e.actors.join(" #")}` : "";
     const sev = e.severity || 1;
+    const eraTurn = prevEra !== null && Number.isFinite(e.era) && e.era !== prevEra;
+    if (Number.isFinite(e.era)) prevEra = e.era;
     // DISPLAY localisation only: rebuild the line from the entry's OWN tokens into the reader's
     // language. Verification (verifyChron) still re-derives the byte-frozen English template, so
     // the "prove no LLM" trust is untouched. Fall back to the canonical English when unavailable.
     const L = currentLang();
     const disp = L !== "en" ? (ct(e.kind, e.tokens, L) || e.text) : e.text;
-    return `<li class="chron-item sev-${sev} kind-${(e.kind || "").toLowerCase()}">
+    const div = eraTurn
+      ? `<li class="chron-era-div">${escapeHtml(eraNames.has(e.era) ? T("chron.eraDiv", { era: eraRoman(e.era).toLowerCase(), name: eraNames.get(e.era) }) : T("chron.eraBadge") + " " + eraRoman(e.era).toLowerCase())}</li>`
+      : "";
+    return `${div}<li class="chron-item sev-${sev} kind-${(e.kind || "").toLowerCase()}">
       <span class="chron-icon" aria-hidden="true">${icon}</span>
       <div class="chron-main">
         <div class="chron-line">${escapeHtml(disp || "")}</div>
@@ -6472,7 +6541,7 @@ function rerenderAll() {
     if (historyOpen) renderHistory();
     renderAnnouncement();   // the strip re-picks the announcement copy for the new language
     renderEraHud();         // the plaque's civ label is templated — re-render it
-    if (chronOpen) { renderChron(); if (chronVerifyState) renderChronVerdict(); renderDynastySection(); renderCultureSection(); renderCommonsSection(); renderSocialSection(); renderBourseSection(); renderFaithSection(); renderPoemSection(); }
+    if (chronOpen) { renderChron(); if (chronVerifyState) renderChronVerdict(); renderDynastySection(); renderCitiesSection(); renderCultureSection(); renderCommonsSection(); renderSocialSection(); renderBourseSection(); renderFaithSection(); renderPoemSection(); }
   } catch { /* never let a re-render break the scene */ }
 }
 window.__onLangChange = rerenderAll;

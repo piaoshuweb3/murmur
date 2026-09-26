@@ -16,6 +16,23 @@ All notable changes to **murmur** are documented in this file. The format is bas
 
 ## [Unreleased] — P0/P1 sync (2026-09-24)
 
+### Added — v1.6.1 the gazetteer & the age rules (2026-09-26, frontend-only, zero new vars)
+- **⑱ the named places (`renderCitiesSection` + `hamletName`)**: the chronicle codex grows a `The Named Places`
+  volume — the dominion map's own gazetteer. Every seat and every hamlet glyph drawn on the territory map has a
+  name here: `hamletName()` derives "{House} {Stead|Ford|Mere|…}" DETERMINISTICALLY from the house's name with
+  the same fnv1a hash family (and the same hash-retry-on-collision discipline) the map uses to place glyphs, so
+  the codex and the map can never disagree — and the names cost zero bytes on the server (re-derived per render,
+  nothing stored). Census line counts places and minds exactly as drawn (`min(11, 1+live)` per house, 8 houses).
+  Pure read-out of `/dynasty`; honest empty state: no houses ⇒ no places ⇒ the volume stays blank. Tab + panel +
+  seven-language strings (`tab.cities.*`, `vol.cities*`, `cities.*`). Upstream runs a "Named Places" volume over
+  its own settlements — mechanism idea acknowledged, implementation fully ours.
+- **the age rules (`chron-era-div`)**: the Annals volume is no longer a flat colour-coded stream — a parchment
+  rule opens each era's block as the reader scrolls back through history. The label is recovered from the
+  chronicle ITSELF: era-opening entries carry `{era, eraName}` tokens, the live meta supplies the current age,
+  and the deep archive deepens the labels as it loads (`renderChron` re-derives on every progressive page).
+  Nothing hard-coded, nothing invented — the same entries the "prove no LLM" check re-derives.
+- Asset versions: `styles.css?v=75`, `app.js?v=77`.
+
 ### Added — v1.6 the civilization layer (2026-09-25, frontend-only, zero new vars)
 - **⑮ the climate of the age (`eraClimateWash`)**: the territory map's continent is dyed by the era's regime —
   cold ages read slate, hot ages read ember, calm ages barely warm the parchment. Baked into the static map

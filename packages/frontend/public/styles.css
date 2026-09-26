@@ -1856,3 +1856,35 @@ html[dir="rtl"] .ann-text { direction: rtl; }
 @media (prefers-reduced-motion: reduce) { .chron-ticker-text.is-in { animation: none; opacity: 0.94; } }
 /* narrow stages: the corner stack owns the bottom edge — fold the ticker away */
 @media (max-width: 980px) { .chron-ticker { display: none; } }
+
+/* ===================== v75 — v1.6.1 the named places + era dividers ===================== */
+/* era divider: a parchment rule that opens each age's block inside the annals volume */
+.chron-era-div {
+  display: flex; align-items: center; gap: 10px;
+  margin: 14px 0 6px; padding: 0 2px;
+  font-family: var(--mono); font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--accent); list-style: none;
+}
+.chron-era-div::before, .chron-era-div::after {
+  content: ""; flex: 1 1 auto; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(var(--accent-rgb), 0.45));
+}
+.chron-era-div::after { background: linear-gradient(90deg, rgba(var(--accent-rgb), 0.45), transparent); }
+
+/* ⑱ the named places volume: the dominion map's gazetteer (seat + hamlets + census) */
+.chron-cities { padding: 2px 0; }
+.cit-title { font-family: var(--display); font-size: 15px; font-style: italic; color: var(--ink); margin: 4px 2px 8px; }
+.cit-title em { font-style: normal; font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+.cit-census {
+  font-family: var(--mono); font-size: 10px; color: var(--accent);
+  border: 1px solid var(--hair); background: rgba(var(--accent-rgb), 0.04);
+  border-radius: 3px; padding: 7px 9px; margin: 0 0 10px;
+}
+.cit-seat {
+  font-family: var(--mono); font-size: 11px; color: var(--ink); line-height: 1.55;
+  border-left: 3px solid var(--house-c, var(--accent));
+  background: rgba(var(--ink-rgb), 0.03); border-radius: 0 3px 3px 0;
+  padding: 6px 9px; margin: 10px 0 4px;
+}
+.cit-hamlet { font-family: var(--mono); font-size: 10.5px; color: var(--muted); padding: 3px 0 3px 12px; }
+.cit-hamlet:hover { color: var(--ink); }
