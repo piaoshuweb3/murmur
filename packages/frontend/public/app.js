@@ -33,7 +33,7 @@
 // i18n kernel — pure read-out localisation layer (never touches sim/economy/proof).
 // NOTE: `t` is used all over this file as a local (time/totals/lerp), so we import the
 // translator under the alias `T` to avoid any shadowing. ct() = chronicle display, gl() = glossary.
-import { t as T, ct, gl, currentLang, getLang, setLang, applyDom, SUPPORTED, ENDONYMS } from "./i18n.js?v=70";
+import { t as T, ct, gl, currentLang, getLang, setLang, applyDom, SUPPORTED, ENDONYMS } from "./i18n.js?v=71";
 
 const params = new URLSearchParams(location.search);
 const API =
@@ -58,16 +58,32 @@ const rgb = (c) => `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})`;
 const rgba = (c, a) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
 
 // ---------- live palette: temperature → paper + accent ----------
+// R5 (Wave-3): the SAME three-stop ramp exists in a dark-paper key. The temperature interpolation
+// keeps running in both themes — only the interval endpoints differ — so the scene still warms and
+// cools with Arc; --paper/--panel never interpolate toward light values while dark is active.
 const PALETTE = {
   cold: { paper: [232, 237, 239], accent: [91, 124, 141] },   // cool slate
   calm: { paper: [242, 238, 230], accent: [154, 140, 110] },  // warm bone + taupe
   hot:  { paper: [247, 234, 224], accent: [192, 94, 60] },    // blush + terracotta
 };
+const DARK_PALETTE = {
+  cold: { paper: [23, 22, 27], accent: [95, 125, 140] },      // deep graphite + steel sage
+  calm: { paper: [26, 25, 30], accent: [179, 161, 132] },     // charcoal + aged brass
+  hot:  { paper: [30, 24, 25], accent: [205, 108, 74] },      // ember charcoal + ember clay
+};
+/** Is the interface currently dark? Explicit data-theme wins over the OS preference. */
+function isDarkTheme() {
+  const t = document.documentElement.dataset.theme;
+  if (t === "dark") return true;
+  if (t === "light") return false;
+  return !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+}
 function paletteAt(T) {
+  const P = isDarkTheme() ? DARK_PALETTE : PALETTE;
   T = clamp(T);
   return T < 0.5
-    ? { paper: mix(PALETTE.cold.paper, PALETTE.calm.paper, T / 0.5), accent: mix(PALETTE.cold.accent, PALETTE.calm.accent, T / 0.5) }
-    : { paper: mix(PALETTE.calm.paper, PALETTE.hot.paper, (T - 0.5) / 0.5), accent: mix(PALETTE.calm.accent, PALETTE.hot.accent, (T - 0.5) / 0.5) };
+    ? { paper: mix(P.cold.paper, P.calm.paper, T / 0.5), accent: mix(P.cold.accent, P.calm.accent, T / 0.5) }
+    : { paper: mix(P.calm.paper, P.hot.paper, (T - 0.5) / 0.5), accent: mix(P.calm.accent, P.hot.accent, (T - 0.5) / 0.5) };
 }
 function applyPaletteToDOM(pal) {
   const p = pal.paper, a = pal.accent, s = document.documentElement.style;
@@ -75,6 +91,58 @@ function applyPaletteToDOM(pal) {
   s.setProperty("--panel", `rgba(${p[0] | 0},${p[1] | 0},${p[2] | 0},0.88)`);
   s.setProperty("--accent", rgb(a));
   s.setProperty("--accent-rgb", `${a[0] | 0},${a[1] | 0},${a[2] | 0}`);
+}
+// R5 (Wave-3): manual theme toggle (the final say lives with the reader, not the OS), persisted.
+// The live palette re-applies immediately so the canvas + chrome never desync from the tokens.
+function toggleTheme() {
+  const next = isDarkTheme() ? "light" : "dark";
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem("murmur-theme", next); } catch { /* private mode: session-only */ }
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = next === "dark" ? "#1a191e" : "#f2eee6";
+  const btn = $("theme-btn");
+  if (btn) btn.textContent = next === "dark" ? "\u2600" : "\u263e";
+  applyPaletteToDOM(paletteAt(tempSmoothed));
+}
+function initTheme() {
+  let saved = null;
+  try { saved = localStorage.getItem("murmur-theme"); } catch { /* private mode */ }
+  if (saved === "dark" || saved === "light") document.documentElement.dataset.theme = saved;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta && isDarkTheme()) meta.content = "#1a191e";
+  const btn = $("theme-btn");
+  if (btn) {
+    btn.textContent = isDarkTheme() ? "\u2600" : "\u263e";
+    btn.addEventListener("click", toggleTheme);
+  }
+}
+
+// ---- R4 (Wave-3): the global toast — end the era of silent catch(){} ----
+// A single self-healing element (3.5 s), kind = info | warn | error. The offline state keeps its own
+// voice (the status word + the circuit-breaker); the toast only fills the seam the doc named:
+// ONLINE but an individual endpoint broke — say so once, never spam (60 s throttle per source).
+let toastEl = null, toastTimer = 0;
+const toastLastAt = {};                     // source key → ms of the last surfaced message
+function toast(msg, kind = "info", source = null) {
+  if (source) {
+    const now = Date.now();
+    if (now - (toastLastAt[source] || 0) < 60_000) return;   // same-source errors stay quiet for 60 s
+    toastLastAt[source] = now;
+  }
+  if (!toastEl) {
+    toastEl = document.createElement("div");
+    toastEl.id = "toast";
+    toastEl.setAttribute("role", "status");                    // screen readers hear it too
+    document.body.appendChild(toastEl);
+  }
+  toastEl.className = "show " + kind;
+  toastEl.textContent = msg;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toastEl.className = ""; }, 3500);
+}
+/** Poll-failure helper: the drawer/feed keeps its last honest state; the reader gets ONE warn. */
+function toastPoll(what, e) {
+  toast(T("err.poll", { what, msg: String((e && e.message) || e).slice(0, 80) }), "warn", what);
 }
 
 // behavioural-state earth tones (CSS strings for the inspector badge)
@@ -3132,7 +3200,7 @@ function openWallets() {
     if (e.market) { econMarket = e.market; renderMarketSection(); }
     if (e.culture) { econCulture = e.culture; renderCultureSection(); }
     if (e.commons) { econCommons = e.commons; renderCommonsSection(); }
-  }).catch(() => {});
+  }).catch((err) => toastPoll("/economy", err));   // R4: the wallets drawer says why it stayed stale
 }
 
 function closeWallets() {
@@ -3397,8 +3465,9 @@ async function refreshExecution() {
     lastExecFlags = data.flags || {};
     renderExecFlags(lastExecFlags);
     renderExecution();
-  } catch {
+  } catch (e) {
     /* circuit-breaker handles the offline case; keep the last rendered feed */
+    toastPoll("/execution/logs", e);   // R4: online-but-broken gets one throttled warn
   }
   // R1/R2 (二次开发 v2.0): the funnel + positions mirrors piggyback on this poll (every 2nd tick
   // ≈ 30s) — no new timers, and both cards own their honest empty states, so a 404/offline
@@ -3497,7 +3566,7 @@ async function refreshMemeFunnel() {
       reg.textContent = `${T("meme.regime")}: ${execEsc(String(m.regime || "–"))}`;
       reg.className = `mf-regime r-${execEsc(String(m.regime || "NEUTRAL"))}`;
     }
-  } catch { renderMemeEmpty(T("meme.offlineNote")); }                    // silent-degrade, never throw
+  } catch (e) { renderMemeEmpty(T("meme.offlineNote")); toastPoll("/meme/snapshot", e); }   // honest empty state + one throttled warn
 }
 
 function renderMemeEmpty(note) {
@@ -3533,7 +3602,7 @@ async function refreshPositions() {
         </div>
         <div class="meta">${execEsc(T("exec.posEntry"))}: ${execEsc(String(x.entryUsd ?? "–"))} · ${execEsc(T("exec.posMark"))}: ${execEsc(String(x.lastMarkUsd ?? "–"))}</div>
       </li>`).join("");
-  } catch { /* same silent-degrade as the exec feed; the circuit-breaker owns the offline case */ }
+  } catch (e) { /* same degrade as the exec feed; the circuit-breaker owns the offline case */ toastPoll("/execution/positions", e); }
 }
 
 // ---- declared ultimate-admin wallet row (二次开发 v1.3 自主权身份要素; identity only, never a key) ----
@@ -4741,7 +4810,7 @@ async function pollProofs(force) {
       if (proofsOpen) renderProofs();
       updateNettingFromProofs();   // the topbar netting chip rides the same provenance poll
     }
-  } catch { /* best-effort: provenance is a nicety and must never block the scene */ }
+  } catch (e) { toastPoll("/proofs", e); }   // R4: the nicety stays best-effort, but say it once
 }
 
 function openProofs() {
@@ -4850,7 +4919,7 @@ function proofDetail(p) {
 
 async function verifyProof(tx, card) {
   const out = card.querySelector(".pf-verifyout"); if (!out) return;
-  out.hidden = false; out.textContent = "checking…";
+  out.hidden = false; out.textContent = T("predict.checking");
   const stored = proofs.find((x) => x.txHash === tx);
   let clientHash = null;
   if (stored) { try { clientHash = await sha256HexClient(stored.receipt); } catch { clientHash = null; } }
@@ -5693,11 +5762,13 @@ function paintPredict() {
   const sub = $("predict-sub");
   const d = predictData;
   if (sub) sub.textContent = d && d.enabled
-    ? `${d.open ? "round #" + d.open.round + " open" : "between rounds"} · ${d.totals ? d.totals.roundsResolved : 0} settled`
-    : "neural stakes · parimutuel";
+    ? (d.open
+      ? T("predict.subRound", { n: d.open.round })
+      : T("predict.subBetween")) + " · " + T("predict.subSettled", { n: d.totals ? d.totals.roundsResolved : 0 })
+    : T("predict.subOff");
   body.innerHTML = "";
   if (!d || !d.enabled) {
-    body.innerHTML = `<p class="predict-empty">the prediction market is disabled on this deployment.</p>`;
+    body.innerHTML = `<p class="predict-empty">${T("predict.disabled")}</p>`;
     return;
   }
   body.appendChild(predictBookCard(d));
@@ -5709,12 +5780,12 @@ function paintPredict() {
 function predictBookCard(d) {
   const card = document.createElement("div"); card.className = "predict-card book";
   const o = d.open;
-  const mode = d.mode === "onchain" ? "settles on Arc mainnet" : "simulated · no real funds";
+  const mode = d.mode === "onchain" ? T("predict.modeOnchain") : T("predict.modeSim");
   let html =
-    `<div class="predict-title">live book <span class="predict-mode">${mode}</span></div>` +
-    `<p class="predict-blurb">Each fly reads its own connectome and stakes real USDC on whether the market temperature <b>rises</b> or <b>falls</b> by next tick. Pools are <b>parimutuel</b>: winners split the losers' pool, strictly zero-sum, and the net settles through the same on-chain netting path as every other trade.</p>`;
+    `<div class="predict-title">${T("predict.bookTitle")} <span class="predict-mode">${mode}</span></div>` +
+    `<p class="predict-blurb">${T("predict.blurb")}</p>`;
   if (!o) {
-    html += `<p class="predict-empty">no open round — the swarm is between ticks. a new book opens every cron.</p>`;
+    html += `<p class="predict-empty">${T("predict.noOpen")}</p>`;
     card.innerHTML = html;
     return card;
   }
@@ -5724,25 +5795,25 @@ function predictBookCard(d) {
   const downPct = tot > 0 ? 100 - upPct : 50;
   const band = Number((d.config && d.config.flatBand) || 0);
   html +=
-    `<div class="pb-round">round <b>#${o.round}</b> · entry tick #${o.entryTick} · resolves next cron</div>` +
+    `<div class="pb-round">${T("predict.roundLine", { n: o.round, t: o.entryTick })}</div>` +
     `<div class="pb-pools">` +
-      `<div class="pb-pool up"><span class="pb-side">▲ up</span><span class="pb-amt">${upUsdc.toFixed(4)}</span></div>` +
-      `<div class="pb-pool down"><span class="pb-side">▼ down</span><span class="pb-amt">${downUsdc.toFixed(4)}</span></div>` +
+      `<div class="pb-pool up"><span class="pb-side">${T("predict.up")}</span><span class="pb-amt">${upUsdc.toFixed(4)}</span></div>` +
+      `<div class="pb-pool down"><span class="pb-side">${T("predict.down")}</span><span class="pb-amt">${downUsdc.toFixed(4)}</span></div>` +
     `</div>` +
     `<div class="pb-bar"><div class="pb-bar-up" style="width:${upPct.toFixed(1)}%"></div><div class="pb-bar-down" style="width:${downPct.toFixed(1)}%"></div></div>` +
     `<div class="pb-odds">` +
-      `<div><dt>up odds</dt><dd>${Number(o.oddsUp || 0).toFixed(2)}×</dd><dd class="pb-prob">${(Number(o.probUp || 0) * 100).toFixed(0)}%</dd></div>` +
-      `<div><dt>down odds</dt><dd>${Number(o.oddsDown || 0).toFixed(2)}×</dd><dd class="pb-prob">${(Number(o.probDown || 0) * 100).toFixed(0)}%</dd></div>` +
+      `<div><dt>${T("predict.upOdds")}</dt><dd>${Number(o.oddsUp || 0).toFixed(2)}×</dd><dd class="pb-prob">${(Number(o.probUp || 0) * 100).toFixed(0)}%</dd></div>` +
+      `<div><dt>${T("predict.downOdds")}</dt><dd>${Number(o.oddsDown || 0).toFixed(2)}×</dd><dd class="pb-prob">${(Number(o.probDown || 0) * 100).toFixed(0)}%</dd></div>` +
     `</div>` +
     `<dl class="pb-meta">` +
-      `<div><dt>entry temp</dt><dd>${Number(o.entryTemp || 0).toFixed(3)}</dd></div>` +
-      `<div><dt>momentum</dt><dd>${(Number(o.momentum || 0) >= 0 ? "+" : "") + Number(o.momentum || 0).toFixed(3)}</dd></div>` +
-      `<div><dt>bets</dt><dd>${o.betCount || 0}</dd></div>` +
-      `<div><dt>flat band</dt><dd>±${band.toFixed(3)}</dd></div>` +
+      `<div><dt>${T("predict.entryTemp")}</dt><dd>${Number(o.entryTemp || 0).toFixed(3)}</dd></div>` +
+      `<div><dt>${T("predict.momentum")}</dt><dd>${(Number(o.momentum || 0) >= 0 ? "+" : "") + Number(o.momentum || 0).toFixed(3)}</dd></div>` +
+      `<div><dt>${T("predict.bets")}</dt><dd>${o.betCount || 0}</dd></div>` +
+      `<div><dt>${T("predict.flatBand")}</dt><dd>±${band.toFixed(3)}</dd></div>` +
     `</dl>`;
   const bets = Array.isArray(o.bets) ? o.bets : [];
   if (bets.length) {
-    html += `<div class="pb-bets-title">neural stakes</div><div class="pb-bets">` +
+    html += `<div class="pb-bets-title">${T("predict.stakesTitle")}</div><div class="pb-bets">` +
       bets.slice(0, 48).map((b) =>
         `<span class="pb-bet ${b.side === "UP" ? "up" : "down"}">#${b.id} ${b.side === "UP" ? "▲" : "▼"} ${Number(b.stakeUsdc || 0).toFixed(4)}</span>`
       ).join("") + `</div>`;
@@ -5756,10 +5827,10 @@ function predictRecentCard(d) {
   const card = document.createElement("div"); card.className = "predict-card recent";
   const rows = Array.isArray(d.recent) ? d.recent : [];
   let html =
-    `<div class="predict-title">resolutions</div>` +
-    `<p class="predict-blurb">Every decisive round is hashed and committed to the on-chain NeuralReceiptRegistry. Recompute the receipt in your browser, then read the same commitment straight off Arc — no murmur server in the loop.</p>`;
+    `<div class="predict-title">${T("predict.resTitle")}</div>` +
+    `<p class="predict-blurb">${T("predict.resBlurb")}</p>`;
   if (!rows.length) {
-    html += `<p class="predict-empty">no resolved rounds yet — the first book resolves on the next cron.</p>`;
+    html += `<p class="predict-empty">${T("predict.resEmpty")}</p>`;
     card.innerHTML = html; return card;
   }
   html += rows.slice(0, 12).map((r) => {
@@ -5774,14 +5845,14 @@ function predictRecentCard(d) {
         `<span class="pr-temp">${Number(r.entryTemp || 0).toFixed(3)} → ${Number(r.exitTemp || 0).toFixed(3)}</span>` +
       `</div>` +
       `<div class="pr-sub">` +
-        `<span>${r.betCount || 0} bets · ${Number(r.totalStakedUsdc || 0).toFixed(4)} usdc</span>` +
+        `<span>${T("predict.betLine", { n: r.betCount || 0, v: Number(r.totalStakedUsdc || 0).toFixed(4) })}</span>` +
         `<span class="pr-hash fp">${shortHash(r.receiptHash || "")}</span>` +
       `</div>` +
       `<div class="pr-actions">` +
-        `<button type="button" class="pr-verify" data-round="${r.round}">verify on-chain</button>` +
+        `<button type="button" class="pr-verify" data-round="${r.round}">${T("predict.verify")}</button>` +
         (committed
-          ? `<a class="tx-link" href="${ARC_EXPLORER}/tx/${r.commitTx}" target="_blank" rel="noopener noreferrer">↗ registry ${shortHash(r.commitTx)}</a>`
-          : `<span class="pr-simnote">${r.outcome === "FLAT" ? "flat · refunded · not committed" : "not committed"}</span>`) +
+          ? `<a class="tx-link" href="${ARC_EXPLORER}/tx/${r.commitTx}" target="_blank" rel="noopener noreferrer">${T("predict.registry", { h: shortHash(r.commitTx) })}</a>`
+          : `<span class="pr-simnote">${r.outcome === "FLAT" ? T("predict.flatNote") : T("predict.notCommitted")}</span>`) +
       `</div>` +
       `<div class="pr-verifyout" hidden></div>` +
     `</div>`;
@@ -5796,23 +5867,23 @@ function predictLeaderCard(d) {
   const rows = Array.isArray(d.leaderboard) ? d.leaderboard : [];
   const t = d.totals || {};
   let html =
-    `<div class="predict-title">hit-rate leaderboard</div>` +
-    `<p class="predict-blurb">Agents ranked by prediction accuracy — the share of decisive rounds where the fly's neural read called the temperature move. Net PnL is realised USDC folded through the on-chain economy.</p>`;
+    `<div class="predict-title">${T("predict.lbTitle")}</div>` +
+    `<p class="predict-blurb">${T("predict.lbBlurb")}</p>`;
   if (t.roundsResolved != null) {
     html += `<div class="pl-totals">` +
-      `<span><b>${t.roundsResolved || 0}</b> rounds</span>` +
-      `<span><b>${t.committed || 0}</b> on-chain</span>` +
-      `<span><b>${Number(t.volumeUsdc || 0).toFixed(4)}</b> usdc</span>` +
-      `<span><b>${t.activeBettors || 0}</b> bettors</span>` +
+      `<span><b>${t.roundsResolved || 0}</b> ${T("predict.tRounds")}</span>` +
+      `<span><b>${t.committed || 0}</b> ${T("predict.tOnchain")}</span>` +
+      `<span><b>${Number(t.volumeUsdc || 0).toFixed(4)}</b> ${T("predict.tUsdc")}</span>` +
+      `<span><b>${t.activeBettors || 0}</b> ${T("predict.tBettors")}</span>` +
     `</div>`;
   }
   if (!rows.length) {
-    html += `<p class="predict-empty">no ranked agents yet — accuracy accrues as rounds resolve.</p>`;
+    html += `<p class="predict-empty">${T("predict.lbEmpty")}</p>`;
     card.innerHTML = html; return card;
   }
   const live = d.mode === "onchain";
   const addrOf = (id) => { const a = econAgents.find((x) => x.id === id); return a && isRealAddr(a.address) ? a.address : null; };
-  html += `<div class="pl-head"><span>#</span><span>agent</span><span>hit</span><span>net</span><span>rnds</span></div>`;
+  html += `<div class="pl-head"><span>#</span><span>${T("pl.hAgent")}</span><span>${T("pl.hHit")}</span><span>${T("pl.hNet")}</span><span>${T("pl.hRnds")}</span></div>`;
   html += rows.slice(0, 25).map((r, i) => {
     const addr = addrOf(r.id);
     const agent = addr
@@ -5829,7 +5900,7 @@ function predictLeaderCard(d) {
       `<span class="pl-rounds">${r.hits || 0}/${r.rounds || 0}</span></div>`;
   }).join("");
   const regAddr = isRealAddr(d.registryAddress) ? d.registryAddress : null;
-  if (regAddr) html += `<div class="pl-reg">registry <span class="fp">${shortHash(regAddr)}</span></div>`;
+  if (regAddr) html += `<div class="pl-reg">${T("pl.registry")} <span class="fp">${shortHash(regAddr)}</span></div>`;
   card.innerHTML = html;
   return card;
 }
@@ -5843,11 +5914,11 @@ function predictLeaderCard(d) {
 async function verifyPredictRound(round, wrap) {
   if (predictVerifying[round]) return;
   const out = wrap ? wrap.querySelector(".pr-verifyout") : null;
-  if (out) { out.hidden = false; out.textContent = "checking…"; }
+  if (out) { out.hidden = false; out.textContent = T("predict.checking"); }
   predictVerifying[round] = true;
   try {
     const v = await getJSON(`/predictions/verify?round=${encodeURIComponent(round)}`, 9000);
-    if (!v.found) { if (out) out.textContent = "round not found in recent history"; return; }
+    if (!v.found) { if (out) out.textContent = T("predict.notFound"); return; }
     let clientHash = null;
     if (v.receipt) { try { clientHash = await sha256HexClient(v.receipt); } catch { clientHash = null; } }
     const selfOk = clientHash == null || clientHash === v.receiptHash;
@@ -6020,6 +6091,21 @@ function applyState(st) {
   // when offline the catch() hides the bar, since the offline badge already speaks).
   if (typeof st.lastCron === "number") cronHeartbeatMs = st.lastCron;
   updateCronWatchdog();
+  // C2 (Wave-3): the resolver gas watchdog banner rides the same /state poll (no new timer).
+  // Offline never flashes it — the offline badge already owns that moment; a null reading (the
+  // probe hasn't run yet, or the economy isn't onchain) simply keeps it hidden.
+  const gw = $("gas-warn");
+  if (gw) {
+    const g = st.resolverGas;
+    if (!offline && g && g.low === true) {
+      const nat = Number(g.atomic) / 1e18;
+      const amt = nat >= 0.01 ? nat.toFixed(2) : nat.toExponential(1);
+      gw.textContent = T("cron.gasLow", { amt });
+      gw.hidden = false;
+    } else {
+      gw.hidden = true;
+    }
+  }
 }
 
 /** The cron watchdog: the DO cron writes lastCron every ~60s. If the API is up but the heartbeat has
@@ -6827,7 +6913,7 @@ function toggleArena() { if (arenaOpen) closeArena(); else openArena(); }
 
 async function renderArena() {
   const body = $("arena-body"); if (!body) return;
-  body.innerHTML = `<p class="ar-loading">loading arena\u2026</p>`;
+  body.innerHTML = `<p class="ar-loading">${T("arena.loading")}</p>`;
   const res = await getJSON("/arena", 8000).catch(() => null);
   if (!arenaOpen) return;                 // closed while fetching
   arenaData = res || null;
@@ -6848,7 +6934,7 @@ async function pollArena(force) {
     arenaData = a;
     await arenaReadUser();
     if (arenaOpen) paintArena();
-  } catch { /* best-effort: the arena is a nicety and must never block the scene */ }
+  } catch (e) { /* the arena is a nicety and must never block the scene */ toastPoll("/arena", e); }
 }
 
 /** Refresh just the countdown each second (no full re-render) so the betting window visibly ticks down. */
@@ -7055,17 +7141,17 @@ function arenaUpdatePreview() {
   if (!c || c.resolved || Number(c.secondsToDeadline || 0) <= 0) { el.textContent = ""; return; }
   const amtEl = $("ar-amount");
   const amt = murToAtomic(amtEl ? amtEl.value : "");
-  if (amt <= 0n) { el.innerHTML = `<span class="ar-pv-hint">enter an amount to preview your payout</span>`; return; }
+  if (amt <= 0n) { el.innerHTML = `<span class="ar-pv-hint">${T("arena.pvEmpty")}</span>`; return; }
   const staked = Number(amt) / 1e18;
   const cell = (side, cls, arrow) => {
     const pay = arenaEstPayout(c, side, amt);
-    if (pay == null) return `<span class="ar-pv ${cls}">${arrow} win <b>\u2013</b></span>`;
+    if (pay == null) return `<span class="ar-pv ${cls}">${arrow} ${T("arena.win")} <b>\u2013</b></span>`;
     const payMur = Number(pay) / 1e18;
     const mult = staked > 0 ? payMur / staked : 0;
-    return `<span class="ar-pv ${cls}">${arrow} win <b>${fmtMur(payMur)}</b> <em>${mult.toFixed(2)}\u00d7 \u00b7 +${fmtMur(payMur - staked)}</em></span>`;
+    return `<span class="ar-pv ${cls}">${arrow} ${T("arena.win")} <b>${fmtMur(payMur)}</b> <em>${mult.toFixed(2)}\u00d7 \u00b7 +${fmtMur(payMur - staked)}</em></span>`;
   };
   el.innerHTML = cell(ARENA_SIDE_UP, "up", "\u25b2") + cell(ARENA_SIDE_DOWN, "down", "\u25bc") +
-    `<span class="ar-pv-note">parimutuel estimate \u00b7 shifts as others bet \u00b7 FLAT refunds your stake</span>`;
+    `<span class="ar-pv-note">${T("arena.pvNote")}</span>`;
 }
 
 // ---- render ----
@@ -7074,11 +7160,13 @@ function paintArena() {
   const sub = $("arena-sub");
   const d = arenaData;
   if (sub) sub.textContent = d && d.enabled
-    ? (d.current ? "round #" + d.current.roundId + (d.current.resolved ? " closed" : " live") : "between rounds")
-    : "MURMUR \u00b7 you vs the swarm";
+    ? (d.current
+      ? T("arena.subRound", { n: d.current.roundId, st: d.current.resolved ? T("arena.subClosed") : T("arena.subLive") })
+      : T("arena.subBetween"))
+    : T("arena.subOff");
   body.innerHTML = "";
   if (!d || !d.enabled) {
-    body.innerHTML = `<p class="ar-empty">the human arena isn't enabled on this deployment yet. it goes live once the PredictionArena contract is deployed and <span class="fp">ARENA_ENABLED</span> is on \u2014 holders bet MURMUR on the same temperature move the swarm does, non-custodially, and the contract pays winners parimutuel.</p>`;
+    body.innerHTML = `<p class="ar-empty">${T("arena.disabled")}</p>`;
     return;
   }
   body.appendChild(arenaBookCard(d));
@@ -7091,12 +7179,12 @@ function paintArena() {
 function arenaBookCard(d) {
   const card = document.createElement("div"); card.className = "ar-card book";
   const c = d.current;
-  const mode = d.armed ? "settles on Arc \u00b7 MURMUR" : "resolver not armed \u00b7 read-only";
+  const mode = d.armed ? T("arena.modeSettles") : T("arena.modeReadonly");
   let html =
-    `<div class="ar-title">live book <span class="ar-mode">${mode}</span></div>` +
-    `<p class="ar-blurb">Bet <b>MURMUR</b> on whether the Arc market temperature is <b>higher</b> or <b>lower</b> when this round closes than the entry the resolver committed at open. Pools are <b>parimutuel</b> and peer-to-peer: the winning side splits the losing side's pool, strictly zero-sum, no house. Inside the flat band \u21d2 FLAT \u21d2 everyone is refunded.</p>`;
+    `<div class="ar-title">${T("arena.bookTitle")} <span class="ar-mode">${mode}</span></div>` +
+    `<p class="ar-blurb">${T("arena.blurb")}</p>`;
   if (!c) {
-    html += `<p class="ar-empty">no live round right now. ${d.armed ? "the resolver opens a new one each cron." : "the resolver isn't armed on this deployment, so rounds aren't opening yet."}</p>`;
+    html += `<p class="ar-empty">${T("arena.noRound")} ${d.armed ? T("arena.opensEachCron") : T("arena.notArmed")}</p>`;
     card.innerHTML = html; return card;
   }
   const unopened = arenaUnopened(c);
@@ -7104,33 +7192,33 @@ function arenaBookCard(d) {
   const upPct = tot > 0 ? (up / tot) * 100 : 50, downPct = tot > 0 ? 100 - upPct : 50;
   const oc = ARENA_OUTCOME[c.outcome] || "";
   html +=
-    `<div class="ar-round">round <b>#${c.roundId}</b> \u00b7 ` +
+    `<div class="ar-round">${T("arena.roundLabel", { n: c.roundId })} ` +
       (c.resolved
         ? `<span class="ar-outcome ${String(oc).toLowerCase().replace(/[^a-z]/g, "")}">${oc}</span>`
         : unopened
-          ? `<span class="ar-outcome pending">awaiting on-chain open</span>`
-          : `closes in <b id="ar-countdown">${arenaClock(c.secondsToDeadline)}</b>`) +
+          ? `<span class="ar-outcome pending">${T("arena.awaitingOpen")}</span>`
+          : `${T("arena.closesIn")} <b id="ar-countdown">${arenaClock(c.secondsToDeadline)}</b>`) +
     `</div>` +
     (unopened
-      ? `<p class="ar-empty">the resolver hasn't opened this round on-chain yet. if this persists across crons, the facilitator wallet is likely out of Arc gas (USDC) \u2014 betting unlocks automatically once it's funded.</p>`
+      ? `<p class="ar-empty">${T("arena.unopenedHelp")}</p>`
       : ``) +
     `<div class="ar-pools">` +
-      `<div class="ar-pool up"><span class="ar-side">\u25b2 up</span><span class="ar-amt">${fmtMur(up)}</span></div>` +
-      `<div class="ar-pool down"><span class="ar-side">\u25bc down</span><span class="ar-amt">${fmtMur(down)}</span></div>` +
+      `<div class="ar-pool up"><span class="ar-side">${T("arena.poolUp")}</span><span class="ar-amt">${fmtMur(up)}</span></div>` +
+      `<div class="ar-pool down"><span class="ar-side">${T("arena.poolDown")}</span><span class="ar-amt">${fmtMur(down)}</span></div>` +
     `</div>` +
     `<div class="ar-bar"><div class="ar-bar-up" style="width:${upPct.toFixed(1)}%"></div><div class="ar-bar-down" style="width:${downPct.toFixed(1)}%"></div></div>` +
     `<div class="ar-odds">` +
-      `<div><dt>up pays</dt><dd>${Number(c.oddsUp || 0).toFixed(2)}\u00d7</dd><dd class="ar-prob">${(Number(c.probUp || 0) * 100).toFixed(0)}% of pool</dd></div>` +
-      `<div><dt>down pays</dt><dd>${Number(c.oddsDown || 0).toFixed(2)}\u00d7</dd><dd class="ar-prob">${(Number(c.probDown || 0) * 100).toFixed(0)}% of pool</dd></div>` +
+      `<div><dt>${T("arena.upPays")}</dt><dd>${Number(c.oddsUp || 0).toFixed(2)}\u00d7</dd><dd class="ar-prob">${T("arena.ofPool", { n: (Number(c.probUp || 0) * 100).toFixed(0) })}</dd></div>` +
+      `<div><dt>${T("arena.downPays")}</dt><dd>${Number(c.oddsDown || 0).toFixed(2)}\u00d7</dd><dd class="ar-prob">${T("arena.ofPool", { n: (Number(c.probDown || 0) * 100).toFixed(0) })}</dd></div>` +
     `</div>` +
     `<dl class="ar-meta">` +
-      `<div><dt>entry temp</dt><dd>${Number(c.entryTemp || 0).toFixed(3)}</dd></div>` +
-      `<div><dt>${c.resolved ? "exit temp" : "window"}</dt><dd>${c.resolved ? Number(c.exitTemp || 0).toFixed(3) : arenaClock(c.secondsToDeadline)}</dd></div>` +
-      `<div><dt>flat band</dt><dd>\u00b1${Number(c.flatBand || 0).toFixed(3)}</dd></div>` +
-      `<div><dt>bettors</dt><dd>${c.bettorCount || 0}</dd></div>` +
+      `<div><dt>${T("arena.entryTemp")}</dt><dd>${Number(c.entryTemp || 0).toFixed(3)}</dd></div>` +
+      `<div><dt>${c.resolved ? T("arena.exitTemp") : T("arena.window")}</dt><dd>${c.resolved ? Number(c.exitTemp || 0).toFixed(3) : arenaClock(c.secondsToDeadline)}</dd></div>` +
+      `<div><dt>${T("arena.flatBand")}</dt><dd>\u00b1${Number(c.flatBand || 0).toFixed(3)}</dd></div>` +
+      `<div><dt>${T("arena.bettors")}</dt><dd>${c.bettorCount || 0}</dd></div>` +
     `</dl>`;
   if (isRealAddr(d.arenaAddress)) {
-    html += `<div class="ar-contract">contract <a class="fp" href="${ARC_EXPLORER}/address/${d.arenaAddress}" target="_blank" rel="noopener noreferrer">${shortHash(d.arenaAddress)}</a></div>`;
+    html += `<div class="ar-contract">${T("arena.contract")} <a class="fp" href="${ARC_EXPLORER}/address/${d.arenaAddress}" target="_blank" rel="noopener noreferrer">${shortHash(d.arenaAddress)}</a></div>`;
   }
   card.innerHTML = html;
   return card;
@@ -7141,10 +7229,10 @@ function arenaYouCard(d) {
   const card = document.createElement("div"); card.className = "ar-card you";
   const c = d.current;
   let html =
-    `<div class="ar-title">your position</div>` +
-    `<p class="ar-blurb">Non-custodial: your MURMUR moves straight from your wallet into the arena contract (you approve, then bet). The murmur server never holds it, and only the contract can pay you back.</p>`;
+    `<div class="ar-title">${T("arena.youTitle")}</div>` +
+    `<p class="ar-blurb">${T("arena.youBlurb")}</p>`;
   if (!arenaAcct) {
-    html += `<div class="ar-actions"><button type="button" class="ar-btn connect">connect wallet</button></div><div class="ar-status"></div>`;
+    html += `<div class="ar-actions"><button type="button" class="ar-btn connect">${T("arena.connect")}</button></div><div class="ar-status"></div>`;
     card.innerHTML = html; return card;
   }
   const u = arenaUser || {};
@@ -7152,40 +7240,40 @@ function arenaYouCard(d) {
   const yourSide = u.side === ARENA_SIDE_UP ? "UP \u25b2" : u.side === ARENA_SIDE_DOWN ? "DOWN \u25bc" : null;
   html +=
     `<dl class="ar-you-meta">` +
-      `<div><dt>wallet</dt><dd class="fp">${shortHash(arenaAcct)}</dd></div>` +
+      `<div><dt>${T("arena.wallet")}</dt><dd class="fp">${shortHash(arenaAcct)}</dd></div>` +
       `<div><dt>MURMUR</dt><dd>${fmtMur(u.balance || 0, 4)}</dd></div>` +
-      `<div><dt>approved</dt><dd>${fmtMur(u.allowance || 0, 2)}</dd></div>` +
+      `<div><dt>${T("arena.approved")}</dt><dd>${fmtMur(u.allowance || 0, 2)}</dd></div>` +
     `</dl>`;
   if (yourSide) {
-    html += `<div class="ar-yourbet">this round you bet <b class="${u.side === ARENA_SIDE_UP ? "up" : "down"}">${yourSide}</b> \u00b7 ${fmtMur(u.amount || 0, 2)} MURMUR</div>`;
+    html += `<div class="ar-yourbet">${T("arena.yourBet", { side: `<b class="${u.side === ARENA_SIDE_UP ? "up" : "down"}">${yourSide}</b>`, amt: fmtMur(u.amount || 0, 2) })}</div>`;
   }
   if (live) {
     html +=
       `<div class="ar-betrow">` +
-        `<input class="ar-amount" id="ar-amount" type="number" min="0" step="any" placeholder="amount" inputmode="decimal" />` +
+        `<input class="ar-amount" id="ar-amount" type="number" min="0" step="any" placeholder="${T("arena.amountPh")}" inputmode="decimal" />` +
         `<span class="ar-unit">MURMUR</span>` +
       `</div>` +
       `<div class="ar-chips">` +
         `<button type="button" class="ar-chip" data-frac="0.25">25%</button>` +
         `<button type="button" class="ar-chip" data-frac="0.5">50%</button>` +
-        `<button type="button" class="ar-chip" data-frac="1">max</button>` +
+        `<button type="button" class="ar-chip" data-frac="1">${T("arena.max")}</button>` +
       `</div>` +
       `<div class="ar-preview" id="ar-preview"></div>` +
       `<div class="ar-actions">` +
-        `<button type="button" class="ar-btn up" data-side="${ARENA_SIDE_UP}">bet \u25b2 up</button>` +
-        `<button type="button" class="ar-btn down" data-side="${ARENA_SIDE_DOWN}">bet \u25bc down</button>` +
+        `<button type="button" class="ar-btn up" data-side="${ARENA_SIDE_UP}">${T("arena.betUp")}</button>` +
+        `<button type="button" class="ar-btn down" data-side="${ARENA_SIDE_DOWN}">${T("arena.betDown")}</button>` +
       `</div>` +
-      `<div class="ar-fine">betting the same side again adds to your stake; the opposite side is rejected by the contract. Approve + bet are two wallet prompts the first time.</div>`;
+      `<div class="ar-fine">${T("arena.fine")}</div>`;
   } else if (c && c.resolved) {
-    html += `<div class="ar-closed">round #${c.roundId} is closed \u2014 ${ARENA_OUTCOME[c.outcome] || "resolved"}. a new round opens next cron.</div>`;
+    html += `<div class="ar-closed">${T("arena.closed", { n: c.roundId, oc: ARENA_OUTCOME[c.outcome] || "resolved" })}</div>`;
   } else if (arenaUnopened(c)) {
-    html += `<div class="ar-closed">round #${c.roundId} is waiting to open on-chain \u2014 no betting window yet. if this persists across crons, the resolver's gas wallet needs funding.</div>`;
+    html += `<div class="ar-closed">${T("arena.waiting", { n: c.roundId })}</div>`;
   } else {
-    html += `<div class="ar-closed">no live betting window right now.</div>`;
+    html += `<div class="ar-closed">${T("arena.noWindow")}</div>`;
   }
   if (Array.isArray(u.claims) && u.claims.length) {
     html += `<div class="ar-actions">` + u.claims.map((cl) =>
-      `<button type="button" class="ar-btn claim" data-claim="${cl.roundId}">claim #${cl.roundId} \u00b7 ${fmtMur(cl.payout, 2)} MURMUR</button>`
+      `<button type="button" class="ar-btn claim" data-claim="${cl.roundId}">${T("arena.claim", { n: cl.roundId, amt: fmtMur(cl.payout, 2) })}</button>`
     ).join("") + `</div>`;
   }
   html += `<div class="ar-status"></div>`;
@@ -7198,24 +7286,26 @@ function arenaVsSwarmCard(d) {
   const card = document.createElement("div"); card.className = "ar-card vs";
   const s = d.swarm, c = d.current, prev = d.previous;
   let html =
-    `<div class="ar-title">you vs the swarm</div>` +
-    `<p class="ar-blurb">The 24 flies bet their own USDC on the same temperature move every cron; their lifetime hit-rate is below. The human side is the crowd's parimutuel lean. Same market, same flat band \u2014 whoever reads Arc better, wins.</p>`;
+    `<div class="ar-title">${T("arena.vsTitle")}</div>` +
+    `<p class="ar-blurb">${T("arena.vsBlurb")}</p>`;
   const hr = s ? Number(s.hitRate) * 100 : null;
   const crowdHasBets = c && (Number(c.probUp || 0) + Number(c.probDown || 0)) > 0;
   const lean = crowdHasBets
-    ? (Number(c.probUp) >= Number(c.probDown) ? `\u25b2 ${Math.round(Number(c.probUp) * 100)}% up` : `\u25bc ${Math.round(Number(c.probDown) * 100)}% down`)
-    : "no bets";
+    ? (Number(c.probUp) >= Number(c.probDown)
+      ? T("arena.leanUp", { n: Math.round(Number(c.probUp) * 100) })
+      : T("arena.leanDown", { n: Math.round(Number(c.probDown) * 100) }))
+    : T("arena.noBets");
   html += `<div class="ar-vs-row">` +
-    `<div class="ar-vs swarm"><span class="ar-vs-label">swarm</span><span class="ar-vs-big">${hr == null ? "\u2013" : hr.toFixed(0) + "%"}</span><span class="ar-vs-sub">${s ? `${s.hits}/${s.rounds} decisive \u00b7 ${s.bettors} flies` : "accruing\u2026"}</span></div>` +
-    `<div class="ar-vs human"><span class="ar-vs-label">humans</span><span class="ar-vs-big">${lean}</span><span class="ar-vs-sub">${c ? `${fmtMur(Number(c.totalMur || 0), 0)} MURMUR \u00b7 ${c.bettorCount || 0} bettors` : "\u2013"}</span></div>` +
+    `<div class="ar-vs swarm"><span class="ar-vs-label">${T("arena.swarm")}</span><span class="ar-vs-big">${hr == null ? "\u2013" : hr.toFixed(0) + "%"}</span><span class="ar-vs-sub">${s ? T("arena.decisive", { hits: s.hits, rounds: s.rounds, flies: s.bettors }) : T("arena.accruing")}</span></div>` +
+    `<div class="ar-vs human"><span class="ar-vs-label">${T("arena.humans")}</span><span class="ar-vs-big">${lean}</span><span class="ar-vs-sub">${c ? T("arena.crowdSub", { mur: fmtMur(Number(c.totalMur || 0), 0), n: c.bettorCount || 0 }) : "\u2013"}</span></div>` +
   `</div>`;
   if (prev && prev.resolved) {
     const oc = ARENA_OUTCOME[prev.outcome] || "?";
     const crowdUp = Number(prev.probUp || 0) >= Number(prev.probDown || 0);
     const flat = prev.outcome === 3 || prev.outcome === 4;
     const crowdWon = (prev.outcome === 1 && crowdUp) || (prev.outcome === 2 && !crowdUp);
-    html += `<div class="ar-last">round #${prev.roundId} closed <b class="ar-outcome ${String(oc).toLowerCase().replace(/[^a-z]/g, "")}">${oc}</b> \u00b7 ` +
-      (flat ? `everyone refunded` : crowdWon ? `the crowd called it \u2713` : `the crowd missed \u2717`) + `</div>`;
+    html += `<div class="ar-last">${T("arena.lastClosed", { n: prev.roundId })} <b class="ar-outcome ${String(oc).toLowerCase().replace(/[^a-z]/g, "")}">${oc}</b> \u00b7 ` +
+      (flat ? T("arena.refundedAll") : crowdWon ? T("arena.crowdCalled") : T("arena.crowdMissed")) + `</div>`;
   }
   card.innerHTML = html;
   return card;
@@ -7353,6 +7443,7 @@ function offlineTick() {
 function boot() {
   // resolve the reader's language first (persisted > browser > en) so the very first paints are localized
   setLang(getLang(), { rerender: false });
+  initTheme();                                // R5: restore the saved light/dark choice before first paint
   haloSprite = makeHaloSprite();
   resize();
   bindUI();

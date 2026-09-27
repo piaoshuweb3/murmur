@@ -460,6 +460,63 @@ body.ins-open .panel-pop, body.ins-open .panel-econ { opacity: 0.1; pointer-even
 }
 .cron-warn[hidden] { display: none; }
 
+/* ============ C2 (Wave-3): resolver gas watchdog banner (amber sibling of cron-warn) ============ */
+.gas-warn {
+  position: fixed; top: calc(var(--pad) + 40px); left: 50%; transform: translateX(-50%);
+  z-index: 29; pointer-events: none; max-width: 90vw;
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.04em; text-align: center;
+  color: #f7f1e1; background: rgba(138, 109, 26, 0.92);
+  border: 1px solid #8a6d1a; border-radius: 3px;
+  padding: 5px 12px; box-shadow: 0 4px 16px rgba(26, 26, 24, 0.18);
+  animation: breathe 2.6s ease-in-out infinite;
+}
+.gas-warn[hidden] { display: none; }
+
+/* ============ R4 (Wave-3): the global toast ============ */
+#toast {
+  position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+  background: var(--panel); border: 1px solid var(--hair); color: var(--ink); padding: 8px 14px;
+  font-family: var(--mono); font-size: 12px; opacity: 0; pointer-events: none;
+  transition: opacity .25s; z-index: 90; max-width: 86vw; border-radius: 3px;
+}
+#toast.show { opacity: 1; }
+#toast.error { border-color: #b03a2e; color: #b03a2e; }
+#toast.warn  { border-color: #8a6d1a; color: inherit; }
+
+/* ============ R5 (Wave-3): the theme toggle button ============ */
+.theme-btn {
+  font-family: var(--mono); font-size: 11px; line-height: 1;
+  color: var(--muted); background: transparent; border: 1px solid transparent; border-radius: 2px;
+  padding: 2px 5px; cursor: pointer; transition: color .2s ease, border-color .2s ease;
+}
+.theme-btn:hover { color: var(--accent); border-color: var(--hair); }
+
+/* ============ R5 (Wave-3): the dark mirror — token-only, zero JS logic ============
+   Two layers, exactly like the doc's design: the OS preference (for readers who never
+   touch the toggle) and the explicit data-theme override (the reader's final say wins
+   over the OS in both directions). The live palette writeback in app.js swaps to its
+   dark interval when either layer is active, so --paper/--panel stay dark here. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #17161a; --panel: rgba(28, 27, 33, 0.88);
+    --ink: #e8e4da; --ink-rgb: 232, 228, 218;
+    --accent: #b3a184; --accent-rgb: 179, 161, 132;
+    --hair: rgba(232, 228, 218, 0.14); --muted: rgba(232, 228, 218, 0.55);
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #17161a; --panel: rgba(28, 27, 33, 0.88);
+  --ink: #e8e4da; --ink-rgb: 232, 228, 218;
+  --accent: #b3a184; --accent-rgb: 179, 161, 132;
+  --hair: rgba(232, 228, 218, 0.14); --muted: rgba(232, 228, 218, 0.55);
+}
+:root[data-theme="light"] {
+  --paper: #f2eee6; --panel: rgba(242, 238, 230, 0.88);
+  --ink: #1a1a18; --ink-rgb: 26, 26, 24;
+  --accent: #9a8c6e; --accent-rgb: 154, 140, 110;
+  --hair: rgba(26, 26, 24, 0.14); --muted: rgba(26, 26, 24, 0.5);
+}
+
 /* --- "all agent wallets" toggle (in the economy panel) --- */
 .wallets-btn {
   margin-top: 10px; width: 100%;

@@ -76,7 +76,8 @@ import { deriveAgentKeys } from "./keys.js";
 import type { Address, LocalAccount } from "viem";
 // 二次开发 layer: the optional meme monitoring channel + the gated external execution bridge.
 import { sampleMeme } from "./meme/indicators.js";
-import type { MemeSnapshot } from "./meme/types.js";
+import { memeRegimeStimulus } from "./meme/stimulus.js";
+import type { MemeSnapshot, MemeRegime } from "./meme/types.js";
 import { ExecutionAdapter } from "./execution/adapter.js";
 import { buildExternalIntents } from "./execution/intents.js";
 import { PositionBook } from "./execution/positions.js";
@@ -84,7 +85,6 @@ import { buildExitIntents, exitRulesFromEnv, fetchTokenMarks, type TokenMark } f
 import { getTokenDecimals } from "./execution/decimals.js";
 import { queryExecutionLogs, ensureExecutionSchema } from "./execution/log.js";
 import { recentShadowRecords } from "./execution/shadow.js";
-import type { MemeRegime } from "./meme/types.js";
 import { Chronicler, chroniclerRulesHash, CHRONICLE_VERSION, type ChronicleEntry, type ChronicleContext, type ChronicleFaith, type ShockKind } from "./chronicler.js";
 // P1 同步的四个纯读出模块（全部默认关旗；OFF ⇒ 零调用、字节级不变）：
 import { BourseMeter, reduceBourseLegs, sampleBourseTransfers, coinStimuli, type BourseReadOut } from "./bourse.js";
@@ -265,6 +265,14 @@ export class FlyStateDO {
    *  intensity ≥ 0.75). In-memory only, exactly like pendingStimuli: lost on eviction, best-effort, never
    *  feeds a decision — it only names an era on the next cron. Null when no shock is queued. */
   private pendingGovernanceShock: { kind: ShockKind; actor?: number } | null = null;
+
+  /** C2 (Wave-3) — the resolver gas watchdog. The facilitator address is captured ONCE when the
+   *  real-money deps are built (buildOnchainDeps, at most once per DO lifetime); the cron's read-only
+   *  balance probe lands here and mirrors into DO storage so /state can report it after an eviction. */
+  private facilitatorGasAddress: string | null = null;
+  private resolverGas: { atomic: string; low: boolean; checkedAt: number } | null = null;
+  /** Consecutive crons below the gas floor (drives the fire-once operator warning, like the chronicle cooldowns). */
+  private lowGasCrons = 0;
 
   constructor(state: DurableObjectState, env: Env) {
     this.state = state;
@@ -910,6 +918,9 @@ export class FlyStateDO {
     // populationSize accounts a newly bred fly's address would be absent from byAddress and its on-chain buy
     // would fail "no signer for payer". Derivation is deterministic + lazy, so covering unused slots is free.
     const keys = deriveAgentKeys(e.mnemonic!, this.cfg.maxLivePopulation, e.facilitatorPk ?? undefined);
+    // C2 (Wave-3): capture the gas wallet's address once — the watchdog's read-only probe reuses it
+    // every cron without re-deriving a single key.
+    this.facilitatorGasAddress = keys.facilitatorAddress();
     const pub = publicClient(this.cfg);
     const wallet = walletClient(this.cfg, keys.facilitator());
 
@@ -1694,6 +1705,22 @@ export class FlyStateDO {
           `[DO] meme heat=${meme.overallHeat.toFixed(3)} ${meme.regime} signals=${meme.topSignals.length} ` +
             `fused T=${temperature.toFixed(3)}`,
         );
+        // B5 (Wave-3): the meme channel's REGIME EDGE as a one-shot feeling. The fused temperature
+        // above already carries the LEVEL; only the CROSSING between crons injects a stimulus, onto
+        // the four existing visitor channels (no new sensory channel ⇒ manifestHash never rotates).
+        // Edge state lives in DO storage so an isolate restart cannot fake a spurious edge. Fail-soft
+        // in its own try/catch: a storage hiccup must never degrade the temperature fusion above.
+        try {
+          const prevMemeRegime = await this.state.storage.get<string>("meme:regime");
+          const edge = memeRegimeStimulus(prevMemeRegime as MemeRegime | null | undefined, meme.regime);
+          await this.state.storage.put("meme:regime", meme.regime);
+          if (edge) {
+            this.pendingStimuli.push(edge);
+            console.log(`[DO] meme regime edge → stimulus ${edge.type}@${edge.intensity} (${edge.from})`);
+          }
+        } catch (eEdge) {
+          console.warn("[DO] meme regime edge failed (non-fatal):", (eEdge as Error).message);
+        }
       } catch (e) {
         console.warn("[DO] meme sample failed (non-fatal):", (e as Error).message);
         meme = null;
@@ -2007,6 +2034,41 @@ export class FlyStateDO {
       }
     }
 
+    // C2 (Wave-3) — RESOLVER GAS WATCHDOG. One read-only eth_getBalance per cron against the
+    // facilitator/resolver wallet (the single gas payer for arena open/resolve, registry commits
+    // and lineage anchors). Zero transactions, zero gas spent. Below the floor it: warns ONCE on
+    // the operator console (the chronicle stays civilization narrative — ops signals belong to the
+    // ops channel: /state + the frontend banner), and mirrors the reading into DO storage + /state
+    // so the frontend banner can name the funding need while the operator is looking at the page.
+    // Fail-soft: an RPC hiccup only skips this cron's probe, never the tick.
+    const GAS_FLOOR_ATOMIC = 500_000_000_000_000_000n; // 0.5 native (18 dec) ≈ days of arena open/resolves
+    if (this.facilitatorGasAddress) {
+      try {
+        const gas = await publicClient(this.cfg).getBalance({
+          address: this.facilitatorGasAddress as Address,
+        });
+        const low = gas < GAS_FLOOR_ATOMIC;
+        this.resolverGas = { atomic: gas.toString(), low, checkedAt: Date.now() };
+        if (low) {
+          this.lowGasCrons += 1;
+          if (this.lowGasCrons === 1) {
+            console.warn(
+              `[DO] RESOLVER LOW GAS: ${this.facilitatorGasAddress} holds ` +
+                `${Number(gas) / 1e18} native — arena open/resolve will silently stop at zero. ` +
+                `Fund the facilitator wallet (see the funding runbook).`,
+            );
+          }
+        } else {
+          this.lowGasCrons = 0;
+        }
+        await this.state.storage.put("resolver:gasAtomic", this.resolverGas.atomic);
+        await this.state.storage.put("resolver:gasLow", low);
+        await this.state.storage.put("resolver:gasAt", this.resolverGas.checkedAt);
+      } catch (eGas) {
+        console.warn("[DO] resolver gas probe failed (non-fatal):", (eGas as Error).message);
+      }
+    }
+
     // HUMAN ARENA — drive the on-chain MURMUR arena as its resolver (open the new round, resolve the one
     //    that just closed). Best-effort and gated behind the real-money rails; never blocks the live tick.
     if (economy) {
@@ -2226,6 +2288,19 @@ export class FlyStateDO {
     const snap = await this.loadSnapshot();
     const market = (await this.state.storage.get<MarketState>(KEY_MARKET)) ?? null;
     const econTotals = this.cfg.economy.enabled ? (await this.ensureEconomy()).snapshot().totals : null;
+    // C2 (Wave-3): the resolver gas watchdog's last reading. Memory first, DO storage as the
+    // eviction fallback — a restarted isolate must not blank the frontend banner.
+    let resolverGas = this.resolverGas;
+    if (!resolverGas) {
+      const gasAtomic = await this.state.storage.get<string>("resolver:gasAtomic");
+      if (gasAtomic != null) {
+        resolverGas = {
+          atomic: gasAtomic,
+          low: (await this.state.storage.get<boolean>("resolver:gasLow")) === true,
+          checkedAt: (await this.state.storage.get<number>("resolver:gasAt")) ?? 0,
+        };
+      }
+    }
     return json({
       name: "murmur",
       tickIndex: swarm.getTickIndex(),
@@ -2237,6 +2312,7 @@ export class FlyStateDO {
       cap: this.cfg.maxLivePopulation,
       liveRetire: this.cfg.liveRetire,
       vitality: swarm.getVitality(),
+      resolverGas,
       collective: snap?.collective ?? null,
       economy: econTotals
         ? {

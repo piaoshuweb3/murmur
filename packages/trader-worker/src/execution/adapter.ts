@@ -64,6 +64,22 @@ const JUPITER_ULTRA_EXECUTE = "https://api.jup.ag/ultra/v1/execute";
 // 0x v2 (allowance-holder flow).
 const ZEROX_QUOTE = "https://api.0x.org/swap/allowance-holder/quote";
 
+/**
+ * B4 (Wave-3) — the Jupiter Ultra routing switch, CODE-CONSTANT mode (the var pool is 62/64; a
+ * routing preference never justifies a new env key). false ⇒ the v1 lite-api path byte-for-byte
+ * (the shipped default); true ⇒ solana swaps route through solanaSwapUltra (/ultra/v1/order →
+ * sign → /ultra/v1/execute: better landing rates + MEV protection). Module-level `let` only so
+ * the contract test can flip it via __setUltraRoute() — production code never touches it.
+ * Enabling in production ALSO requires EXECUTION_SIGNING_ENABLED=true (Ultra refuses to sign
+ * otherwise, P0-5) and is recommended only behind the Wave-A shadow→live ladder.
+ */
+let EXECUTION_ROUTE_ULTRA = false;
+
+/** @internal test hook — flip the Ultra routing switch between tests (module state would otherwise leak). */
+export function __setUltraRoute(v: boolean): void {
+  EXECUTION_ROUTE_ULTRA = v;
+}
+
 const USDC_BASE = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; // Base USDC (6 dec)
 const USDC_ETH = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"; // Ethereum USDC (6 dec)
 
@@ -260,7 +276,8 @@ export class ExecutionAdapter {
   private async routeAndSwap(intent: ExecutionIntent, amountUsd: number): Promise<ExecutionResult> {
     switch (intent.chain) {
       case "solana":
-        return this.solanaSwap(intent, amountUsd);
+        // B4 (Wave-3): the Ultra switch — false keeps the v1 path byte-for-byte.
+        return EXECUTION_ROUTE_ULTRA ? this.solanaSwapUltra(intent, amountUsd) : this.solanaSwap(intent, amountUsd);
       case "base":
       case "eth":
         return this.evmSwap(intent, amountUsd);
