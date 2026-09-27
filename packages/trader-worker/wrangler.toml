@@ -54,11 +54,11 @@ RPC_URL = "https://rpc.mainnet.arc.io"        # Arc mainnet public RPC (KEEP key
                                               # ALCHEMY_ARC_RPC_URL *secret* for paid endpoints)
 
 # ===== Market temperature (Arc whole-chain activity) =====
-MARKET_SAMPLE_BLOCKS = "16"                   # recent blocks sampled per cron for tx/gas throughput
-MARKET_EWMA_ALPHA = "0.08"                    # baseline smoothing (slow ⇒ tracks the regime, not spikes)
+# 2026-09-27 budget restructure: MARKET_SAMPLE_BLOCKS/EWMA_ALPHA/REGIME_HOT/REGIME_COLD pins removed —
+# live values were string-identical to the code defaults (16/0.08/0.66/0.33, config.ts L707-710);
+# removal is byte-identical in behavior and frees 4 of the 64 free-tier slots. Re-pin via --var only
+# when deviating.
 MARKET_GAIN = "3.0"                           # logistic sharpness ratio→temperature (calibrated on live Arc)
-REGIME_HOT = "0.66"                           # temperature ≥ this ⇒ HOT
-REGIME_COLD = "0.33"                          # temperature ≤ this ⇒ COLD
 
 # ===== Fly population =====
 POPULATION_SIZE = "24"                        # number of flies in the swarm (1–256)
@@ -72,11 +72,14 @@ SIM_STEPS_PER_TICK = "500"                    # total LIF integration steps per 
 SHARD_COUNT = "12"
 
 # ===== Visitor stimulus ("poke the swarm") + CORS (audit F-5/F-6 hardening) =====
-STIMULUS_COOLDOWN_SEC = "30"                  # one injection per visitor per N seconds
+# 2026-09-27 budget restructure: STIMULUS_COOLDOWN_SEC / FRONTEND_ORIGIN pins removed — live values
+# ("30" / "*") were string-identical to the code defaults (config.ts L722/L724); re-pin via --var only
+# when deviating.
 # STIMULUS_ADMIN_ONLY = "true"                # recommended on PUBLIC self-hosts: POST /stimulus then
 #                                             # requires ADMIN_TOKEN (otherwise anonymous visitors can
 #                                             # shape the swarm's neural state — audit F-5). Default false.
-FRONTEND_ORIGIN = "*"                         # informational default; see CORS_ALLOW_ORIGINS below
+# FRONTEND_ORIGIN removed 2026-09-27 (live value "*" == code default; see restructure note above).
+#                                             # informational default; see CORS_ALLOW_ORIGINS below
 # CORS_ALLOW_ORIGINS = "https://www.your-domain.com,https://your-domain.com"
 #                                             # recommended: when set, ONLY these Origins get an
 #                                             # Access-Control-Allow-Origin header (audit F-6).
@@ -226,10 +229,12 @@ BRAIN_DENSITY = "0.002"
 # MEME_SOURCE_ETH = "dexscreener"
 # Watchlists below = the VERIFIED triple-chain default set (deep pools + canonical contracts + real
 # volume, screened 2026-09-20 via pool-age & real-volume checks against same-ticker impostors).
-# Uncomment all six lines at runbook stage §6.1 [E1] — copy-paste ready:
-# MEME_WATCHLIST_SOLANA = "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263,EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm,7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr"   # BONK / WIF / POPCAT
-# MEME_WATCHLIST_BASE = "0x532f27101965dd16442E59d40670FaF5eBB142E4,0x0b3e328455c4059EEb9e3f84b5543F74E24e7E1b,0x4ed4E862860beD51a9570b96d89aF5E1B0Efefed,0xAC1Bd2486aAf3B5C0fc3Fd868558b082a531B2B4"   # BRETT / VIRTUAL / DEGEN / TOSHI
-# MEME_WATCHLIST_ETH = "0x6982508145454Ce325dDbE47a25d4ec3d2311933,0xaaeE1A9723aaDB7afA2810263653A34bA2C21C7a,0xE0f63A424a4439cBE457D80E4f4b51aD25b2c56C"   # PEPE / MOG (canonical 2023 pool) / SPX6900
+# 2026-09-27: UNCOMMENTED + LIVE — the meme channel is armed (MEME_ENABLED rides the deploy --var
+# chain per the arming-flag discipline). Monitoring is read-only and keyless (dexscreener defaults);
+# the execution adapters stay dark. Sources default to dexscreener — no vars needed.
+MEME_WATCHLIST_SOLANA = "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263,EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm,7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr"   # BONK / WIF / POPCAT
+MEME_WATCHLIST_BASE = "0x532f27101965dd16442E59d40670FaF5eBB142E4,0x0b3e328455c4059EEb9e3f84b5543F74E24e7E1b,0x4ed4E862860beD51a9570b96d89aF5E1B0Efefed,0xAC1Bd2486aAf3B5C0fc3Fd868558b082a531B2B4"   # BRETT / VIRTUAL / DEGEN / TOSHI
+MEME_WATCHLIST_ETH = "0x6982508145454Ce325dDbE47a25d4ec3d2311933,0xaaeE1A9723aaDB7afA2810263653A34bA2C21C7a,0xE0f63A424a4439cBE457D80E4f4b51aD25b2c56C"   # PEPE / MOG (canonical 2023 pool) / SPX6900
 # Adding a token? Screen first: ① pool age ≈ the token's known launch date  ② real (non-zero) 1h/5m
 # volume matching the liquidity scale. Same-ticker impostors with fresh 2026 pools and zero volume exist.
 # MEME_HELIUS_PROGRAMS = "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8,pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA"
