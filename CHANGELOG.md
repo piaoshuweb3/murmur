@@ -16,6 +16,34 @@ All notable changes to **murmur** are documented in this file. The format is bas
 
 ## [Unreleased] — P0/P1 sync (2026-09-24)
 
+### Added — Wave-2 the real-money rails (2026-09-27, execution-layer, flag-gated behind REAL_SPEND)
+- **B1 EVM real signing (0x allowance-holder → viem)**: the commented signing stub is now LIVE — quote →
+  approval gate (`ensureAllowance`, max-approve once, receipt-waited) → signer arming check (the 4th flag
+  `EXECUTION_SIGNING_ENABLED` now gates EVM exactly as it gates Solana, P0-5 symmetry) → B7 `eth_call`
+  dress rehearsal → broadcast → `waitForTransactionReceipt` → `executed` with receipt-sourced gasUsed.
+  The mock `0xZER0X_SIMULATED_*` return is gone. Zero behavior change while REAL_SPEND=false.
+- **B2 real portfolio**: live mode reads the DEDICATED execution wallet for real — Solana
+  `getTokenAccountsByOwner` enumeration + EVM ledger-vouched `balanceOf` verification (the PositionBook is
+  synced into the adapter every cron via `syncHeldTokens`) + DexScreener deepest-pool pricing (stables fall
+  back to $1). `availableUsd` counts stables only (risk rule 7's semantics); every read is fail-soft
+  DOWNWARD, and with nothing configured the live read is ZERO — fail-CLOSED: the rails reject buys instead
+  of spending money the wallet doesn't have. Wallet addresses are DERIVED from the signing secrets (zero
+  new vars). Shadow mode keeps the paper defaults untouched.
+- **B3 D1-persisted daily volume**: `queryDailyVolumeUsd` sums the UTC day's buys from `execution_log`
+  (unix-ms day boundary; unit-normalised — executed rows are raw 6-dec USDC ÷10⁶, shadow rows are USD
+  as-is) so the daily budget rail survives DO restarts. Shadow buys still count (deliberately conservative).
+- **B6 consecutive-failure circuit breaker**: 3 consecutive live-path failures degrade the adapter to
+  shadow for 30 minutes (paper fills keep exercising the neural→intent→audit pipeline; D1 rows carry the
+  `circuit-breaker` reason); one clean broadcast resets the count.
+- **B7 pre-broadcast simulation**: Solana `simulateTransaction` (sigVerify + replaceRecentBlockhash) and
+  EVM `eth_call` rehearsal both throw into the failed path BEFORE any broadcast — a reverting swap never
+  burns gas or pollutes the audit log. (In the allowance-holder flow the approve legitimately precedes the
+  simulation — the AllowanceHolder pulls the sell token, so the max-approve is a reusable prerequisite.)
+- **tests**: 11 new contract tests in `wave2.test.ts` (SQL shape, fail-soft/fail-CLOSED, breaker open/reset,
+  unarmed refusal, armed end-to-end ordering via stubbed JSON-RPC that viem runs against for real,
+  sim-revert no-broadcast); the two P0-5 live-path stubs were upgraded for the fail-CLOSED portfolio and
+  the simulate step. Suite: 455 trader-worker (526 total).
+
 ### Fixed — v1.6.2 the honest arena (2026-09-26, frontend-only, zero new vars)
 - **arena unopened-round honest state (`arenaUnopened` + book/you cards)**: when the resolver announces a round
   id but hasn't opened it on-chain yet (dry gas wallet, transient RPC), the book card no longer renders a
