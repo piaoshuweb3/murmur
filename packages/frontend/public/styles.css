@@ -1535,8 +1535,12 @@ body.arena-open .panel-pop { opacity: 0.1; pointer-events: none; }
   /* vertical room is no longer scarce — bring back the live settlement feed */
   .econ-feed { display: flex; max-height: 150px; overflow: hidden; }
 
-  /* compact the pinned topbar so its meta never crowds the wordmark */
-  .topmeta { gap: 6px; font-size: 10px; letter-spacing: 0.1em; }
+  /* compact the pinned topbar so its meta never crowds the wordmark. The decorative slashes
+     around the status cluster drop out on phones (R6: they are pure ornament; the dot,
+     chain and live/offline word all stay) — frees ~38px so the longest status word still
+     clears the right edge on a 320px screen. */
+  .topmeta { gap: 5px; font-size: 10px; letter-spacing: 0.1em; }
+  .topmeta .sep { display: none; }
   .wordmark { gap: 7px; }
   .wordmark .name { font-size: 20px; }
 
@@ -1544,6 +1548,16 @@ body.arena-open .panel-pop { opacity: 0.1; pointer-events: none; }
   .wallets { width: min(94vw, 372px); }
   .drawer { width: min(96vw, 440px); }
   .inspector { max-height: 70vh; }
+}
+
+/* ultra-narrow phones (<=360px): squeeze the fixed chrome one notch further so the status
+   cluster still clears the right edge after R6 has tucked every prose link into the sheet. */
+@media (max-width: 360px) {
+  .wordmark .name { font-size: 17px; }
+  .topmeta { gap: 4px; font-size: 9.5px; }
+  .lang-select { max-width: 64px; }
+  .theme-btn { padding-left: 7px; padding-right: 7px; }
+  .nav-more { padding-left: 7px; padding-right: 7px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1977,3 +1991,45 @@ html[dir="rtl"] .ann-text { direction: rtl; }
 .exec-pos-head b.hot { color: #b03a2e; }
 .exec-pos-empty { color: var(--muted); font-size: 10px; margin: 8px 0; }
 .log-item.held { border-left-color: var(--accent); }
+
+/* ============ Wave-4c · R1-promoted homepage funnel + R6 mobile nav + R8 skeletons ============ */
+/* R1-promoted: the meme funnel embedded in the temperature panel — the very panel whose number
+   the cron blends these five indicators into. Compact grid so the narrow panel reads cleanly. */
+.meme-funnel.home { border-top: 1px solid var(--hair); padding: 10px 0 2px; margin-top: 2px; }
+.meme-funnel.home .mf-bar { grid-template-columns: 8em 1fr 4.8em; }
+.meme-funnel.home .mf-note { margin: 4px 0 2px; }
+
+/* R6: the ⋯ overflow button + the nav sheet pinned under the topbar (phones only — buildMobileNav()
+   never reveals either on desktop; the button ships hidden and the sheet ships empty+hidden). */
+.nav-more {
+  appearance: none; background: transparent; border: 1px solid var(--hair); border-radius: 999px;
+  color: var(--muted); font: inherit; font-size: 11px; line-height: 1; padding: 3px 9px 5px;
+  cursor: pointer; transition: color 0.35s ease, border-color 0.35s ease;
+}
+.nav-more:hover { color: var(--ink); }
+.nav-sheet {
+  position: fixed; top: calc(var(--pad) + 40px); right: var(--pad); z-index: 60;
+  display: flex; flex-direction: column; min-width: 152px;
+  background: var(--paper); border: 1px solid var(--hair); border-radius: 10px;
+  box-shadow: 0 10px 28px rgba(var(--ink-rgb), 0.16); overflow: hidden;
+}
+body.ann-open .nav-sheet { top: calc(var(--ann-h, 0px) + var(--pad) + 40px); }
+.nav-sheet a {
+  display: flex; align-items: center; gap: 7px; padding: 10px 14px;
+  font-size: 11px; letter-spacing: 0.14em; text-transform: lowercase;
+  color: var(--muted); text-decoration: none; border-top: 1px solid var(--hair);
+  transition: color 0.35s ease, background 0.35s ease;
+}
+.nav-sheet a:first-child { border-top: 0; }
+.nav-sheet a:hover { color: var(--ink); background: rgba(var(--ink-rgb), 0.05); }
+
+/* R8: skeleton bars — the loading zones speak with motion, never with fake data. Data (or the
+   honest empty/offline note) replaces them wholesale; a failed fetch clears them too. */
+.skel {
+  height: 46px; border-left: 3px solid var(--hair); border-radius: 2px; margin: 6px 0;
+  background: linear-gradient(90deg, var(--hair) 25%, transparent 50%, var(--hair) 75%);
+  background-size: 200% 100%; animation: skel 1.2s infinite;
+}
+.hist-skel .skel { height: 34px; }
+@keyframes skel { to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .skel { animation: none; } }

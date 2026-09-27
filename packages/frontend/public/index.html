@@ -8,7 +8,7 @@
   <title>murmur — a population of neural agents settling on arc</title>
   <meta name="description" content="murmur is a living population of fruit-fly nervous systems adrift on arc. it reads whole-chain activity, reduces it to a temperature, and the swarm reacts. each fly is an autonomous agent whose 10,800-neuron connectome decides what to buy and from whom, settling with its peers in real USDC on Arc mainnet over x402 — every payment a verifiable on-chain transaction. no LLM, just neurons paying each other for real." />
 
-  <link rel="stylesheet" href="./styles.css?v=78" />
+  <link rel="stylesheet" href="./styles.css?v=79" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><g fill='%231a1a18'><circle cx='12' cy='14' r='3.1'/><circle cx='20.5' cy='11.5' r='2.3'/><circle cx='17.5' cy='21' r='1.9'/></g></svg>" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -67,6 +67,10 @@
       <!-- R5 (Wave-3): the theme toggle. Light stays the default; dark mirrors the tokens and keeps the
            temperature-driven live palette working (the writeback swaps to its dark interval). -->
       <button type="button" id="theme-btn" class="theme-btn" aria-label="toggle dark theme" data-i18n-title="theme.toggleTitle" title="switch light / dark">☾</button>
+      <!-- R6 (Wave-4c): the mobile ⋯ overflow button. JS shows it only on ≤680px AND only when the
+           topbar truly overflows; the overflowed prose links move (DOM move, not clones) into the
+           nav sheet below. Desktop never enters that path — this button stays hidden there. -->
+      <button type="button" id="nav-more" class="nav-more" aria-expanded="false" aria-controls="nav-sheet" data-i18n-aria="top.navMore" data-i18n-title="top.navMore" title="more links" hidden>⋯</button>
       <span class="sep">/</span>
       <span class="link-dot" id="link-dot"></span>
       <span id="chain">arc</span>
@@ -82,6 +86,11 @@
        low gas is a funding TODO, not an outage). Driven by /state.resolverGas from the DO cron's
        read-only balance probe. -->
   <div class="gas-warn" id="gas-warn" role="alert" hidden data-i18n-title="cron.gasLowTitle" title="resolver gas watchdog"></div>
+
+  <!-- R6 (Wave-4c): the nav sheet — a small parchment menu pinned under the topbar that receives
+       the topbar's overflow links on phones. Filled by JS with real DOM moves (events travel with
+       the nodes); on desktop it stays hidden forever. -->
+  <nav id="nav-sheet" class="nav-sheet" aria-label="more links" hidden></nav>
 
   <!-- ============ agent economy (top-left): the x402 swarm ledger ============ -->
   <section class="panel panel-econ">
@@ -137,6 +146,16 @@
       <div><dt data-i18n="temp.txbk">tx/blk</dt><dd id="tpb">–</dd></div>
       <div><dt data-i18n="temp.tick">tick</dt><dd id="tick">–</dd></div>
     </dl>
+    <!-- R1-promoted (Wave-4c): the meme signal funnel now lives ON the homepage, embedded in the
+         very panel whose number it feeds — the cron blends these five indicators into temperature.
+         Honest empty states only: channel off / degraded / unreachable all render a note, never fake bars. -->
+    <section id="meme-funnel" class="meme-funnel home" hidden>
+      <h4 class="mf-title" data-i18n="meme.funnelTitle">meme signal funnel</h4>
+      <div class="mf-heat"><span class="mf-label" data-i18n="meme.heat">composite heat</span><span class="track"><span id="mf-heat-bar"></span></span><b id="mf-heat-num">–</b></div>
+      <div id="mf-regime" class="mf-regime" hidden>–</div>
+      <ul class="mf-bars" id="mf-bars"></ul>
+      <p id="mf-note" class="mf-note" hidden></p>
+    </section>
     <button class="hist-btn" id="hist-btn" type="button" data-i18n="temp.histBtn">swarm history →</button>
     <button class="exec-btn" id="exec-btn" type="button" data-i18n="exec.btn" data-i18n-title="exec.btnTitle" title="the external-execution audit feed">execution log →</button>
     <button class="pulse-btn" id="pulse-btn" type="button" data-i18n="temp.pulseBtn" data-i18n-title="temp.pulseTitle" title="Buy the machine-readable Arc-activity signal over x402 (HTTP 402), and see the trustless on-chain PnL leaderboard">arc pulse · x402 →</button>
@@ -432,6 +451,9 @@
         <div><dt data-i18n="hist.settlements">settlements</dt><dd id="hs-sett">–</dd></div>
         <div><dt data-i18n="hist.usdc">usdc settled</dt><dd id="hs-vol">–</dd></div>
       </dl>
+      <!-- R8 (Wave-4c): skeleton slot while the first /history fetch is in flight — data (or the
+           honest "–" placeholders) replaces it; a failed fetch clears it too. -->
+      <div class="hist-skel" id="hist-skel" hidden aria-hidden="true"></div>
       <div class="hist-charts">
         <figure class="hist-chart">
           <figcaption><span data-i18n="hist.tempChart">market temperature</span> <span id="hc-temp-now"></span></figcaption>
@@ -547,15 +569,8 @@
       <span class="exec-flag" id="ef-real" data-i18n="exec.flagRealOff" title="EXECUTION_REAL_SPEND — the kill switch; false never broadcasts">real spend off</span>
       <span class="exec-flag" id="ef-shadow" data-i18n="exec.flagShadowOn" title="EXECUTION_SHADOW — record-only paper trading">shadow on</span>
     </div>
-    <!-- R1 meme signal funnel (二次开发 v2.0): the same indicators the cron fuses into temperature.
-         Honest empty states only: channel off / degraded / unreachable all render a note, never fake bars. -->
-    <section id="meme-funnel" class="meme-funnel" hidden>
-      <h4 class="mf-title" data-i18n="meme.funnelTitle">meme signal funnel</h4>
-      <div class="mf-heat"><span class="mf-label" data-i18n="meme.heat">composite heat</span><span class="track"><span id="mf-heat-bar"></span></span><b id="mf-heat-num">–</b></div>
-      <div id="mf-regime" class="mf-regime" hidden>–</div>
-      <ul class="mf-bars" id="mf-bars"></ul>
-      <p id="mf-note" class="mf-note" hidden></p>
-    </section>
+    <!-- R1 meme funnel PROMOTED to the homepage in Wave-4c (embedded in .panel-temp, the panel it
+         feeds) — the exec drawer keeps the positions mirror and the audit feed. -->
     <!-- R2 open positions (二次开发 v2.0): read-only mirror of the PositionBook's DO-storage snapshot. -->
     <ul id="exec-positions" class="exec-positions" hidden></ul>
     <div class="exec-filters" id="exec-filters">
@@ -574,6 +589,6 @@
     </div>
   </aside>
 
-  <script src="./app.js?v=81" type="module"></script>
+  <script src="./app.js?v=82" type="module"></script>
 </body>
 </html>

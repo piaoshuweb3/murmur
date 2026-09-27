@@ -24,6 +24,7 @@ const en = {
   "top.nettingTitle": "on-chain netting — many trades folded into one settlement; verify it on the Arc explorer",
   "top.nettingLabel": "{n} trades → 1 settlement",
   "top.ghTitle": "source · github.com/piaoshuweb3/murmur",
+  "top.navMore": "more",
   // ---- cron watchdog ----
   "cron.warn": "⚠ historian dormant · data may be stalled",
   "cron.warnStale": "⚠ historian dormant · no fresh tick for ~{mins} min (the cron may have stalled — data is not live)",
@@ -556,6 +557,7 @@ const zh = {
   "top.nettingTitle": "链上并账 —— 多笔交易并成 1 笔结算，可在 Arc 浏览器逐笔核验",
   "top.nettingLabel": "{n} 笔交易 → 1 笔结算",
   "top.ghTitle": "源码 · github.com/piaoshuweb3/murmur",
+  "top.navMore": "更多",
   "cron.warn": "⚠ 史官休眠 · 数据可能已停摆",
   "cron.warnStale": "⚠ 史官休眠 · 已约 {mins} 分钟未更新（cron 可能停摆，数据非实时）",
   // ---- 执行日志（二次开发外部执行审计源） ----

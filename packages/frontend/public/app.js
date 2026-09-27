@@ -33,7 +33,7 @@
 // i18n kernel — pure read-out localisation layer (never touches sim/economy/proof).
 // NOTE: `t` is used all over this file as a local (time/totals/lerp), so we import the
 // translator under the alias `T` to avoid any shadowing. ct() = chronicle display, gl() = glossary.
-import { t as T, ct, gl, currentLang, getLang, setLang, applyDom, SUPPORTED, ENDONYMS } from "./i18n.js?v=71";
+import { t as T, ct, gl, currentLang, getLang, setLang, applyDom, SUPPORTED, ENDONYMS } from "./i18n.js?v=72";
 
 const params = new URLSearchParams(location.search);
 const API =
@@ -3240,7 +3240,9 @@ async function pollHistory() {
     } else {
       histEnabled = false;
     }
-  } catch { /* best-effort: history is a nicety and must never block the scene */ }
+  } catch { /* best-effort: history is a nicety and must never block the scene */
+    const hk = $("hist-skel"); if (hk) hk.hidden = true;   // R8: a failed fetch still clears the skeletons
+  }
 }
 
 function fmtSince(ts) {
@@ -3325,6 +3327,7 @@ function drawSpark(canvas, vals, opts = {}) {
 }
 
 function renderHistory() {
+  const hk = $("hist-skel"); if (hk) hk.hidden = true;   // R8: data arrived — skeletons step down
   const temps = histRows.map((r) => r.temperature).filter((v) => v != null);
   const vols = histRows.map((r) => r.volumeUsdc).filter((v) => v != null);
   const ginis = histRows.map((r) => r.gini).filter((v) => v != null);
@@ -3356,6 +3359,8 @@ function openHistory() {
   d.hidden = false;
   document.body.classList.add("history-open");
   requestAnimationFrame(() => d.classList.add("open"));
+  const hk = $("hist-skel");                   // R8: skeleton while the first /history fetch is in flight
+  if (hk && !histSummary) { hk.hidden = false; hk.innerHTML = '<div class="skel"></div><div class="skel"></div>'; }
   renderHistory();
   pollHistory();   // refresh immediately on open so it's never stale
 }
@@ -3469,10 +3474,11 @@ async function refreshExecution() {
     /* circuit-breaker handles the offline case; keep the last rendered feed */
     toastPoll("/execution/logs", e);   // R4: online-but-broken gets one throttled warn
   }
-  // R1/R2 (二次开发 v2.0): the funnel + positions mirrors piggyback on this poll (every 2nd tick
-  // ≈ 30s) — no new timers, and both cards own their honest empty states, so a 404/offline
-  // upstream never breaks the feed that shares the drawer.
-  if ((execPollCount++ % MEME_POLL_EVERY) === 0) { refreshMemeFunnel(); refreshPositions(); }
+  // R2 (二次开发 v2.0): the positions mirror piggybacks on this poll (every 2nd tick ≈ 30s) —
+  // no new timers, and the card owns its honest empty states, so a 404/offline upstream never
+  // breaks the feed that shares the drawer. The meme funnel no longer rides here: Wave-4c
+  // promoted it ONTO THE HOMEPAGE (.panel-temp), where it runs on its own slow timer in boot().
+  if ((execPollCount++ % MEME_POLL_EVERY) === 0) refreshPositions();
 }
 
 function renderExecFlags(flags) {
@@ -3530,7 +3536,11 @@ function renderExecution() {
 
 // ---- R1 meme signal funnel (二次开发 v2.0): the same five indicators the cron fuses into ----
 // ---- temperature (meme/indicators.ts HEAT_WEIGHTS), rendered as an honest funnel card.     ----
-const MEME_POLL_EVERY = 2;              // refresh cadence: every 2nd exec tick ≈ 30s
+// Wave-4c: the card moved from the exec drawer onto the HOMEPAGE (.panel-temp) — first-screen
+// visibility instead of a hidden drawer — so it now polls on its own slow timer instead of
+// piggybacking on the drawer's poll cycle.
+const MEME_POLL_EVERY = 2;              // positions piggyback cadence: every 2nd exec tick ≈ 30s
+const MEME_HOME_POLL_MS = 60000;        // homepage funnel cadence: 60s — indicators move at cron pace
 let execPollCount = 0;
 
 async function refreshMemeFunnel() {
@@ -3990,6 +4000,7 @@ async function initAnnouncements() {
     } else {
       xl.hidden = true;
     }
+    buildMobileNav();   // R6: the social seat just resolved (shown or hidden) — re-measure the phone topbar
   }
   // newest first; the first item without a remembered dismissal wins. A dismissal expires after
   // 14 days (legacy "1" marks read as day-zero) so an announcement can always return — a strip
@@ -4060,11 +4071,12 @@ let netProof = null;          // { txHash, trades } of the freshest netted settl
 function renderNetting() {
   const chip = $("netting-chip");
   if (!chip) return;
-  if (!netProof || !netProof.txHash || netProof.txHash === "0x") { chip.hidden = true; return; }
+  if (!netProof || !netProof.txHash || netProof.txHash === "0x") { chip.hidden = true; buildMobileNav(); return; }   // R6: seat vanished → re-measure
   const label = $("netting-label");
   if (label) label.textContent = T("top.nettingLabel", { n: netProof.trades ?? 1 });
   chip.href = `${ARC_EXPLORER}/tx/${netProof.txHash}`;
   chip.hidden = false;
+  buildMobileNav();   // R6: seat appeared → re-measure
 }
 
 /** Fold the freshest MINED netted settlement out of the shared `proofs` array (kept fresh by the
@@ -4798,6 +4810,15 @@ async function sha256HexText(text) {
   return [...new Uint8Array(dig)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+// ---- R8 skeleton screens (Wave-4c): bars in the loading zones of the heavy drawers so a first
+// ---- open never renders as dead air. Data — or the honest empty/offline state — replaces them
+// ---- wholesale; a failed fetch clears them too. Skeletons never outlive the truth.
+function showSkel(box, n) {
+  if (!box) return;
+  box.innerHTML = "";
+  for (let i = 0; i < n; i++) { const s = document.createElement("div"); s.className = "skel"; box.appendChild(s); }
+}
+
 async function pollProofs(force) {
   const now = Date.now();
   if (!force && now - lastProofsPoll < PROOFS_POLL_MS) return;
@@ -4809,8 +4830,15 @@ async function pollProofs(force) {
       proofsMeta = { version: p.version, policy: p.policy, chainHead: p.chainHead, count: p.count, ipfsGateway: p.ipfsGateway || "" };
       if (proofsOpen) renderProofs();
       updateNettingFromProofs();   // the topbar netting chip rides the same provenance poll
+    } else if (proofsOpen) {
+      // R8: proofs disabled upstream — the skeletons must still step down to the honest "–" state.
+      const b = $("proofs-body"); if (b && b.querySelector(".skel")) renderProofs();
     }
-  } catch (e) { toastPoll("/proofs", e); }   // R4: the nicety stays best-effort, but say it once
+  } catch (e) {
+    toastPoll("/proofs", e);   // R4: the nicety stays best-effort, but say it once
+    // R8: a failed first fetch still clears the skeletons — they never outlive the truth.
+    if (proofsOpen) { const b = $("proofs-body"); if (b && b.querySelector(".skel")) renderProofs(); }
+  }
 }
 
 function openProofs() {
@@ -4827,7 +4855,9 @@ function openProofs() {
   d.hidden = false;
   document.body.classList.add("proofs-open");
   requestAnimationFrame(() => d.classList.add("open"));
-  renderProofs();
+  // R8: first open with nothing cached yet → skeletons in the loading zone; renderProofs()
+  // replaces them wholesale the moment the fetch answers (or the honest "–" state on failure).
+  if (proofsMeta || proofs.length) renderProofs(); else showSkel($("proofs-body"), 3);
   pollProofs(true);   // refresh immediately on open so it's never stale
 }
 function closeProofs() {
@@ -5075,6 +5105,9 @@ function renderBrain() {
   body.innerHTML = "";
   if (brainLoading || !brainData) {
     if (sub) sub.textContent = brainLoading ? "assembling…" : "–";
+    body.innerHTML = "";
+    // R8: while the manifest assembles, the loading zone breathes (skeletons + the honest line)
+    if (brainLoading) for (let i = 0; i < 3; i++) { const s = document.createElement("div"); s.className = "skel"; body.appendChild(s); }
     const p = document.createElement("p"); p.className = "pf-empty";
     p.textContent = brainLoading
       ? "assembling the swarm's connectome manifest (24 brains, 10,800 neurons each) …"
@@ -7439,6 +7472,48 @@ function offlineTick() {
   applyEconomy(synthEconomy(s));
 }
 
+// ================= R6 mobile nav consolidation (Wave-4c) =================
+// On ≤680px the topbar's prose links (api / community / transparency / github / the social
+// seats) overflow. buildMobileNav() MOVES them (real DOM moves — classes and listeners travel
+// with the nodes) into #nav-sheet, pinned under the topbar. It only acts when the bar truly
+// overflows AND the phone breakpoint matches; desktop always takes the restore branch first
+// and the media-query guard returns — the desktop topbar stays byte-for-byte what it was.
+let navMoved = [];          // [el, originalNextSibling] pairs for an exact desktop restore
+let navResizeT = 0;
+function buildMobileNav() {
+  const more = $("nav-more"), sheet = $("nav-sheet");
+  const meta = document.querySelector(".topmeta");
+  const bar = document.querySelector("header.topbar");
+  if (!more || !sheet || !meta || !bar) return;
+  while (navMoved.length) {                       // restore desktop order first (idempotent)
+    const [el, ref] = navMoved.pop();
+    meta.insertBefore(el, ref);
+  }
+  more.hidden = true; sheet.hidden = true; more.setAttribute("aria-expanded", "false");
+  if (!window.matchMedia("(max-width: 680px)").matches) return;    // desktop: zero change, ever
+  more.hidden = false;                            // the button itself takes width — measure with it shown
+  // Overflow is measured on the TOPBAR, not .topmeta: the meta strip is an auto-width flex child
+  // that grows past the viewport whole (html{overflow-x:hidden} then clips it), so its own
+  // scrollWidth never exceeds its clientWidth. The fixed topbar is viewport-sized, so its
+  // scrollWidth honestly reports the protruding children.
+  const cands = [...meta.querySelectorAll("a.api-link, a.gh-link, a.x-link, a.netting-chip")]
+    .filter((el) => !el.hidden);
+  let i = 0;
+  while (bar.scrollWidth > bar.clientWidth + 8 && i < cands.length) {
+    const el = cands[i++];
+    navMoved.push([el, el.nextSibling]);
+    sheet.appendChild(el);                        // DOM move: the link lives in the sheet now
+  }
+  if (!navMoved.length) more.hidden = true;       // fits as-is — nothing to tuck away
+}
+function toggleNavSheet(force) {
+  const more = $("nav-more"), sheet = $("nav-sheet");
+  if (!more || !sheet || more.hidden) return;
+  const open = typeof force === "boolean" ? force : sheet.hidden;
+  sheet.hidden = !open;
+  more.setAttribute("aria-expanded", String(open));
+}
+
 // ================= boot =================
 function boot() {
   // resolve the reader's language first (persisted > browser > en) so the very first paints are localized
@@ -7470,6 +7545,19 @@ function boot() {
   setInterval(pollBourse, CHRON_POLL_MS);
   pollPoem();                                 // 45s: the laureate's odes (same optional gating)
   setInterval(pollPoem, CHRON_POLL_MS);
+  buildMobileNav();                           // R6: consolidate the topbar if this viewport overflows it
+  window.addEventListener("resize", () => { clearTimeout(navResizeT); navResizeT = setTimeout(buildMobileNav, 160); });
+  {                                           // R6: sheet open/close + outside-tap / Esc dismissal
+    const navMoreBtn = $("nav-more");
+    if (navMoreBtn) navMoreBtn.addEventListener("click", (e) => { e.stopPropagation(); toggleNavSheet(); });
+    document.addEventListener("click", (e) => {
+      const sheet = $("nav-sheet");
+      if (sheet && !sheet.hidden && !sheet.contains(e.target) && e.target !== navMoreBtn) toggleNavSheet(false);
+    });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") toggleNavSheet(false); });
+  }
+  refreshMemeFunnel();                        // R1-promoted (Wave-4c): the funnel lives on the homepage now
+  setInterval(refreshMemeFunnel, MEME_HOME_POLL_MS);   // 60s — the five indicators move at cron pace
   requestAnimationFrame(loop);
 }
 boot();

@@ -16,6 +16,23 @@ All notable changes to **murmur** are documented in this file. The format is bas
 
 ## [Unreleased] — P0/P1 sync (2026-09-24)
 
+### Deployed — Wave-4c: the meme funnel comes out of the drawer (2026-09-27)
+- **R1 promoted**: the meme signal funnel now lives ON the homepage, embedded in the market
+  temperature panel it actually feeds (`.panel-temp`), polling on its own 60s timer instead of
+  piggybacking on the exec drawer's poll — first-screen visibility replaces dig-three-clicks.
+- **R6 mobile nav consolidation**: on phones (<=680px) the topbar's prose links (social seat,
+  github, api, community, transparency) that truly overflow move (real DOM moves, events travel)
+  into a parchment nav-sheet pinned under the topbar; decorative seps drop out and an
+  ultra-narrow (<=360px) tier squeezes the fixed chrome. Desktop never enters the path
+  (restore-first + media-query guard). Seats resolving async (social/netting) re-trigger the measure.
+- **R8 skeleton screens**: the three heavy drawers (history / proofs / brain) get honest shimmer
+  bars in their loading zones on first open; data, the empty state, OR a failed fetch replaces
+  them wholesale — skeletons never outlive the truth. prefers-reduced-motion honoured.
+- Selector guard: all 16 `[hidden]` enforcement rules verified intact (transport-artifact scare
+  investigated and closed — zero file damage).
+- Fingerprints: app.js v82 / styles.css v79 / i18n.js v72 / i18n-ui.js v75 (index + transparency).
+  Suite 536 green; headless-verified at 1280/390/320 widths, light + dark, zero page errors.
+
 ### Deployed — Wave-4 integration deploy to flyx402.xyz (2026-09-27, waves 1–3 ship together)
 - **The integration deploy**: Wave-1 (meme funnel + execution positions cards, `GET /meme/snapshot`,
   `GET /execution/positions`), Wave-2 (the real-money rails — flag-gated, EVM signing/portfolio/D1
