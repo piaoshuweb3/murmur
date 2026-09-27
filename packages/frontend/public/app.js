@@ -3400,6 +3400,10 @@ async function refreshExecution() {
   } catch {
     /* circuit-breaker handles the offline case; keep the last rendered feed */
   }
+  // R1/R2 (二次开发 v2.0): the funnel + positions mirrors piggyback on this poll (every 2nd tick
+  // ≈ 30s) — no new timers, and both cards own their honest empty states, so a 404/offline
+  // upstream never breaks the feed that shares the drawer.
+  if ((execPollCount++ % MEME_POLL_EVERY) === 0) { refreshMemeFunnel(); refreshPositions(); }
 }
 
 function renderExecFlags(flags) {
@@ -3453,6 +3457,83 @@ function renderExecution() {
   }
   const stats = $("exec-stats");
   if (stats) stats.textContent = T("exec.stats", { n: rows.length, f: T(EXEC_FILTER_KEYS[execFilter] || "exec.fAll") });
+}
+
+// ---- R1 meme signal funnel (二次开发 v2.0): the same five indicators the cron fuses into ----
+// ---- temperature (meme/indicators.ts HEAT_WEIGHTS), rendered as an honest funnel card.     ----
+const MEME_POLL_EVERY = 2;              // refresh cadence: every 2nd exec tick ≈ 30s
+let execPollCount = 0;
+
+async function refreshMemeFunnel() {
+  const box = $("meme-funnel");
+  if (!box) return;
+  try {
+    const m = await getJSON("/meme/snapshot");
+    box.hidden = false;
+    if (!m.armed) { renderMemeEmpty(T("meme.offNote")); return; }        // channel off: say so
+    if (m.degraded || !m.indicators) { renderMemeEmpty(T("meme.degradedNote")); return; }
+    const note = $("mf-note"); if (note) note.hidden = true;
+    const pct = (x) => `${Math.round((Number(x) || 0) * 100)}%`;
+    // weights shown are the source HEAT_WEIGHTS (meme/indicators.ts) — the funnel reads as
+    // exactly what it is: the same numbers the cron blends into the market temperature
+    const bars = [
+      ["launchHeat", m.indicators.launchHeat, "25%"],
+      ["volumeSpike", m.indicators.volumeSpike, "30%"],
+      ["smartMoneyFlow", m.indicators.smartMoneyFlow, "25%"],
+      ["socialMomentum", m.indicators.socialMomentum, "15%"],
+      ["liquidityHealth", m.indicators.liquidityHealth, "5%"],
+    ];
+    $("mf-bars").innerHTML = bars.map(([k, v, w]) =>
+      `<li class="mf-bar"><span class="k">${execEsc(T("meme." + k))}</span>` +
+      `<span class="track"><span class="fill ${k === "liquidityHealth" ? "risk" : ""}" style="width:${pct(v)}"></span></span>` +
+      `<span class="v">${pct(v)}<i>${w}</i></span></li>`).join("");
+    const heatBar = $("mf-heat-bar");
+    if (heatBar) heatBar.style.width = pct(m.overallHeat);
+    const heatNum = $("mf-heat-num");
+    if (heatNum) heatNum.textContent = pct(m.overallHeat);
+    const reg = $("mf-regime");
+    if (reg) {
+      reg.hidden = false;
+      reg.textContent = `${T("meme.regime")}: ${execEsc(String(m.regime || "–"))}`;
+      reg.className = `mf-regime r-${execEsc(String(m.regime || "NEUTRAL"))}`;
+    }
+  } catch { renderMemeEmpty(T("meme.offlineNote")); }                    // silent-degrade, never throw
+}
+
+function renderMemeEmpty(note) {
+  const box = $("meme-funnel");
+  if (!box) return;
+  box.hidden = false;
+  const bars = $("mf-bars"); if (bars) bars.innerHTML = "";
+  const bar = $("mf-heat-bar"); if (bar) bar.style.width = "0";
+  const num = $("mf-heat-num"); if (num) num.textContent = "–";
+  const reg = $("mf-regime"); if (reg) reg.hidden = true;
+  const n = $("mf-note");
+  if (n) { n.hidden = false; n.textContent = note; }
+}
+
+// ---- R2 open positions (二次开发 v2.0): read-only mirror of the PositionBook snapshot the ----
+// ---- execution loop persists each cron; empty book renders the honest empty note.          ----
+async function refreshPositions() {
+  const box = $("exec-positions");
+  if (!box) return;
+  try {
+    const p = await getJSON("/execution/positions");
+    box.hidden = false;
+    if (!p.count) {
+      box.innerHTML = `<li class="exec-pos-empty">${execEsc(T("exec.posEmpty"))}</li>`;
+      return;
+    }
+    box.innerHTML = `<li class="exec-pos-head">${execEsc(T("exec.posHead", { n: p.count }))}${p.realSpend ? ' <b class="hot">REAL</b>' : ""}</li>` +
+      p.positions.map((x) => `<li class="log-item held">
+        <div class="row1">
+          <span class="chain c-${execEsc(x.chain || "solana")}">${execEsc(x.chain || "")}</span>
+          <span class="token">${execEsc(String(x.token || "").slice(0, 6))}…${execEsc(String(x.token || "").slice(-4))}</span>
+          <span class="status">${execEsc(T("exec.posAmt"))} ${execEsc(String(x.tokenAmount ?? "–"))}</span>
+        </div>
+        <div class="meta">${execEsc(T("exec.posEntry"))}: ${execEsc(String(x.entryUsd ?? "–"))} · ${execEsc(T("exec.posMark"))}: ${execEsc(String(x.lastMarkUsd ?? "–"))}</div>
+      </li>`).join("");
+  } catch { /* same silent-degrade as the exec feed; the circuit-breaker owns the offline case */ }
 }
 
 // ---- declared ultimate-admin wallet row (二次开发 v1.3 自主权身份要素; identity only, never a key) ----

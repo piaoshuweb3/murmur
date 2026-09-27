@@ -1584,6 +1584,9 @@ export class FlyStateDO {
       if (req.method === "GET" && path.startsWith("/lineage/")) return await this.getLineageOne(path.split("/")[2]);
       if (req.method === "GET" && path === "/history") return await this.getHistory(url);
       if (req.method === "GET" && path === "/execution/logs") return await this.getExecutionLogs(url);
+      // 二次开发 R1/R2（建议书 v2.0）：meme 漏斗卡 + 持仓组合卡的只读读出端点（零新 var、零写入、零链上调用）
+      if (req.method === "GET" && path === "/execution/positions") return await this.getExecutionPositions();
+      if (req.method === "GET" && path === "/meme/snapshot") return await this.getMemeSnapshot();
       if (req.method === "GET" && path === "/annals") return await this.getAnnals(url);
       if (req.method === "GET" && path === "/annals/archive") return await this.getAnnalsArchive(url);
       if (req.method === "GET" && path === "/annals/verify") return await this.getAnnalsVerify(url);
@@ -3213,6 +3216,52 @@ export class FlyStateDO {
       },
       logs,
     });
+  }
+
+  /**
+   * GET /execution/positions — the PositionBook's live holdings, read-only.
+   * Mirrors the DO-storage snapshot (KEY_POSITIONS) the execution loop persists each cron;
+   * falls back to a direct storage read when the in-memory book hasn't been restored yet
+   * (post-restart, pre-first-cron). Read-only by design: never mutates the book, never
+   * touches a chain, safe to poll from the frontend positions card.
+   */
+  private async getExecutionPositions(): Promise<Response> {
+    const book = this.peekPositionBook();
+    const positions = book
+      ? book.serialize()
+      : ((await this.state.storage.get<ReturnType<PositionBook["serialize"]>>(KEY_POSITIONS)) ?? []);
+    return json({
+      enabled: (this.env.EXECUTION_ENABLED ?? "").trim() === "true",
+      realSpend: (this.env.EXECUTION_REAL_SPEND ?? "").trim() === "true",
+      shadow: (this.env.EXECUTION_SHADOW ?? "true").trim() !== "false",
+      count: positions.length,
+      positions,
+    });
+  }
+
+  /**
+   * GET /meme/snapshot — the meme channel's live readout for the frontend funnel card.
+   * Read-only aggregation over sampleMeme() (the exact call cron Step 1b makes); with the
+   * channel off it returns armed:false instead of pretending. Sampling failure is fail-soft
+   * (same discipline as Step 1b): the card renders the degraded note, the swarm never notices.
+   */
+  private async getMemeSnapshot(): Promise<Response> {
+    const armed = (this.env.MEME_ENABLED ?? "").trim() === "true";
+    if (!armed) {
+      return json({ armed, reason: "MEME_ENABLED=false", indicators: null, overallHeat: null, regime: null, topSignals: [] });
+    }
+    try {
+      const snap = await sampleMeme(this.env);
+      return json({
+        armed: true,
+        indicators: snap.raw,          // launchHeat / volumeSpike / smartMoneyFlow / socialMomentum / liquidityHealth
+        overallHeat: snap.overallHeat,
+        regime: snap.regime,
+        topSignals: snap.topSignals,
+      });
+    } catch (e) {
+      return json({ armed: true, degraded: true, reason: (e as Error).message, indicators: null, overallHeat: null, regime: null, topSignals: [] });
+    }
   }
 
   private async getStimuli() {
