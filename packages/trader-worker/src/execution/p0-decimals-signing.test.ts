@@ -15,6 +15,7 @@ import { Keypair, SystemProgram, TransactionMessage, VersionedTransaction } from
 import bs58 from "bs58";
 
 import { ExecutionAdapter } from "./adapter.js";
+import { __resetCircuitBreaker } from "./adapter.js";
 import { buildExitIntents, DEFAULT_EXIT_RULES } from "./exits.js";
 import { PositionBook } from "./positions.js";
 import { getTokenDecimals, toRawAmount, resetDecimalsCache } from "./decimals.js";
@@ -294,9 +295,21 @@ test("P0-5: signingArmed requires the explicit EXECUTION_SIGNING_ENABLED flag", 
 
 test("P0-5: an UNARMED live buy walks quote+build fully, then refuses BEFORE any signature", async () => {
   resetDecimalsCache();
+  __resetCircuitBreaker();
   const { kp, b58 } = makeSecret();
   const swapTx = makeSwapTransactionB64(kp);
   const restore = stubFetch((url, body) => {
+    // B2 (Wave-2): the live path now reads the REAL portfolio — fund it so the buy clears the
+    // rails and actually reaches the signing gate the test is about.
+    if (body.method === "getTokenAccountsByOwner") {
+      return {
+        result: {
+          value: [
+            { account: { data: { parsed: { info: { mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", tokenAmount: { uiAmountString: "50" } } } } } },
+          ],
+        },
+      };
+    }
     if (url.includes("jup.ag/swap/v1/quote")) return { outAmount: "1000000" };
     if (url.includes("jup.ag/swap/v1/swap")) return { swapTransaction: swapTx };
     if (body.method === "sendTransaction") return { result: bs58.encode(Buffer.alloc(64, 3)) };
@@ -318,14 +331,25 @@ test("P0-5: an UNARMED live buy walks quote+build fully, then refuses BEFORE any
   }
 });
 
-test("P0-5: an ARMED live buy walks quote → build → sign → broadcast end-to-end", async () => {
+test("P0-5: an ARMED live buy walks quote → build → sign → simulate → broadcast end-to-end", async () => {
   resetDecimalsCache();
+  __resetCircuitBreaker();
   const { kp, b58 } = makeSecret();
   const swapTx = makeSwapTransactionB64(kp);
   const onChainSig = bs58.encode(Buffer.alloc(64, 5));
   const restore = stubFetch((url, body) => {
+    if (body.method === "getTokenAccountsByOwner") {
+      return {
+        result: {
+          value: [
+            { account: { data: { parsed: { info: { mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", tokenAmount: { uiAmountString: "50" } } } } } },
+          ],
+        },
+      };
+    }
     if (url.includes("jup.ag/swap/v1/quote")) return { outAmount: "1000000" };
     if (url.includes("jup.ag/swap/v1/swap")) return { swapTransaction: swapTx };
+    if (body.method === "simulateTransaction") return { result: { value: { err: null } } }; // B7 pre-check
     if (body.method === "sendTransaction") return { result: onChainSig };
     return null;
   });

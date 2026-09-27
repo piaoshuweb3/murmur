@@ -130,3 +130,45 @@ export async function queryExecutionLogs(env: Env, limit = 30): Promise<Executio
     return [];
   }
 }
+
+/**
+ * B3 (Wave-2): today's buy volume from the D1 audit table — the daily-volume rail's PERSISTENT
+ * truth. A DO restart can no longer reset the budget: `queryDailyVolumeUsd` sums the UTC day's
+ * execution_log rows so the cap in risk.ts (MAX_DAILY_VOLUME_USDC) survives deploys and isolate
+ * eviction, exactly like the economy's spendGuard philosophy.
+ *
+ * Unit normalisation (the two statuses store amount_in in DIFFERENT units, both TEXT):
+ *   · executed buys → raw USDC, 6 decimals (the adapter's resolveAmountIn contract)   → ÷ 10⁶
+ *   · shadow buys   → USD as written by shadowResult (amountUsd.toFixed(4))           → as-is
+ * Shadow buys COUNT toward the cap deliberately — paper volume must not mask real headroom.
+ *
+ * Fail-soft: any D1 problem reads as 0 (the in-memory rail keeps bounding within the process).
+ * NOTE vs the v3.0 doc's B3 sketch: `created_at` is an INTEGER unix-ms column (see the DDL above),
+ * so the day boundary binds `getTime()`, NOT an ISO string — and the executed/shadow unit split
+ * above is the doc sketch's missing piece. This file is the corrected, authoritative version.
+ */
+export async function queryDailyVolumeUsd(env: Env, now: number = Date.now()): Promise<number> {
+  const db = env.DB;
+  if (!db) return 0;
+  try {
+    await ensureExecutionSchema(db);
+    const dayStart = new Date(now);
+    dayStart.setUTCHours(0, 0, 0, 0);
+    const r = await db
+      .prepare(
+        `SELECT COALESCE(SUM(
+           CASE WHEN status = 'executed' THEN CAST(amount_in AS REAL) / 1000000.0
+                ELSE CAST(amount_in AS REAL) END
+         ), 0) AS v
+         FROM execution_log
+         WHERE side = 'buy' AND status IN ('executed','shadow') AND created_at >= ?`,
+      )
+      .bind(dayStart.getTime()) // INTEGER column — unix ms, not ISO (see DDL comment above)
+      .first<{ v: number | string | null }>();
+    const v = Number(r?.v ?? 0);
+    return Number.isFinite(v) && v > 0 ? v : 0;
+  } catch (e) {
+    console.warn("[execution] daily volume query failed (non-fatal):", (e as Error).message);
+    return 0;
+  }
+}

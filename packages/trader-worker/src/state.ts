@@ -1912,6 +1912,16 @@ export class FlyStateDO {
     if (meme && snapshot) {
       const adapter = new ExecutionAdapter(this.env);
 
+      // B2 (Wave-2): sync the position ledger into the adapter BEFORE any intent executes — the
+      // live portfolio read verifies ledger-vouched EVM holdings on-chain (chain-native ERC-20
+      // enumeration doesn't exist; the book IS the enumeration). Fail-soft: a sync problem only
+      // means the live read skips ledger-vouched verification this round.
+      try {
+        adapter.syncHeldTokens((await this.ensurePositionBook()).all());
+      } catch (e) {
+        console.warn("[execution] held-token sync failed (non-fatal):", (e as Error).message);
+      }
+
       // 4c-i) EXITS (P2-1) — stop-loss / rug / trailing / take-profit / time over the open book.
       try {
         const book = await this.ensurePositionBook();

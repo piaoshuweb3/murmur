@@ -29,18 +29,22 @@ import {
   type RiskRules,
 } from "./risk.js";
 import { recordShadowFill, shadowResult } from "./shadow.js";
-import { writeExecutionLog } from "./log.js";
+import { writeExecutionLog, queryDailyVolumeUsd } from "./log.js";
+import { getRealPortfolio, type HeldToken } from "./portfolio.js";
 import { sizeSellFromUsd } from "./decimals.js";
 import { signingArmed } from "./solana-signer.js";
 import type {
+  ExecChain,
   ExecutionIntent,
   ExecutionResult,
   PortfolioSnapshot,
   RiskDecision,
 } from "./types.js";
+import type { Address, Hash } from "viem";
 
 // Optional EVM stack (already available — viem ships with the worker). Imported lazily inside
-// evmSwap so the module graph stays clean for unit tests that never touch the EVM path.
+// evmSwap so the module graph stays clean for unit tests that never touch the EVM path. Only the
+// TYPE imports sit at the top level — they are erased at runtime and keep the graph clean.
 // import { createPublicClient, createWalletClient, http, encodeFunctionData, maxUint256, erc20Abi, type Address, type Hash } from "viem";
 // import { privateKeyToAccount } from "viem/accounts";
 // import { base, mainnet } from "viem/chains";
@@ -70,6 +74,25 @@ const USDC_ETH = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"; // Ethereum USDC 
  * which only ever LOOSENS the cooldown, and the daily caps (persisted in D1 history) still bound it.
  */
 const lastTradeAt: Record<string, number> = {};
+
+/**
+ * B6 (Wave-2) — the consecutive-failure circuit breaker. After CB_FAIL_LIMIT live-path failures in
+ * a row the adapter degrades itself to shadow for CB_COOLDOWN_MS: an infrastructure problem (RPC
+ * down, 0x erroring, signer misconfigured) must not turn into a string of failed broadcasts and
+ * burned fees. Module-level state on purpose: the DO isolate outlives individual adapter instances.
+ * A restart clearing it re-opens the live path — acceptable, because the DAILY budget rail is
+ * D1-persisted (B3 queryDailyVolumeUsd) and still bounds whatever happens after the restart.
+ * Test hook: __resetCircuitBreaker().
+ */
+const CB = { fails: 0, until: 0 };
+const CB_FAIL_LIMIT = 3; // consecutive live failures before the breaker opens
+const CB_COOLDOWN_MS = 30 * 60_000; // degraded-to-shadow window: 30 minutes
+
+/** @internal test hook — reset the breaker between tests (module state would otherwise leak). */
+export function __resetCircuitBreaker(): void {
+  CB.fails = 0;
+  CB.until = 0;
+}
 
 // ----------------------------- the adapter -----------------------------
 
@@ -133,13 +156,45 @@ export class ExecutionAdapter {
       return result;
     }
 
+    // B6 (Wave-2): the circuit breaker gate — after CB_FAIL_LIMIT consecutive live failures every
+    // live intent degrades to a shadow paper fill for CB_COOLDOWN_MS. Paper fills keep exercising
+    // the neural→intent→audit pipeline while the broken limb (RPC / 0x / signer) cools down.
+    const now = Date.now();
+    if (now < CB.until) {
+      const reason =
+        `circuit-breaker: ${CB_FAIL_LIMIT} consecutive live failures, shadow until ${new Date(CB.until).toISOString()}`;
+      recordShadowFill({
+        intentId: intent.id,
+        token: intent.token,
+        chain: intent.chain,
+        side: intent.side,
+        amountUsd: decision.adjustedAmountUsd,
+        reason,
+        createdAt: now,
+      });
+      lastTradeAt[intent.token] = now; // paper fills respect the cooldown too
+      const degraded: ExecutionResult = { status: "shadow", intentId: intent.id, reason, timestamp: now };
+      await writeExecutionLog(this.env, intent, degraded);
+      return degraded;
+    }
+
     // The live path — guarded by the multi-flag operation documented in the 二次开发 doc.
     try {
       const result = await this.routeAndSwap(intent, decision.adjustedAmountUsd);
       lastTradeAt[intent.token] = Date.now();
+      CB.fails = 0; // a clean broadcast resets the consecutive-failure count
       await writeExecutionLog(this.env, intent, result);
       return result;
     } catch (err: unknown) {
+      CB.fails += 1;
+      if (CB.fails >= CB_FAIL_LIMIT) {
+        CB.until = Date.now() + CB_COOLDOWN_MS;
+        console.warn(
+          `[execution] CIRCUIT BREAKER OPENED after ${CB_FAIL_LIMIT} live failures — ` +
+            `live path degraded to shadow until ${new Date(CB.until).toISOString()}`,
+        );
+        CB.fails = 0;
+      }
       const failed: ExecutionResult = {
         status: "failed",
         intentId: intent.id,
@@ -152,18 +207,51 @@ export class ExecutionAdapter {
   }
 
   /**
-   * Portfolio snapshot. The skeleton returns SAFE defaults (the spec's placeholder); wiring the
-   * real on-chain reader is a one-line swap to getRealPortfolio() in execution/portfolio.ts once
-   * the execution wallet + RPCs are configured (see that file for the exact plan).
+   * The held-token registry the LEDGER vouches for (B2, Wave-2). state.ts syncs the PositionBook's
+   * open positions every cron BEFORE any intent executes; the live portfolio read then verifies
+   * each on-chain. Chain-native "all ERC-20s of a wallet" enumeration does not exist — the book
+   * IS the enumeration, the chain is the verification.
+   */
+  private heldTokens: HeldToken[] = [];
+
+  syncHeldTokens(positions: Array<{ chain: ExecChain; token: string }>): void {
+    this.heldTokens = positions
+      .filter((p) => p && typeof p.token === "string" && typeof p.chain === "string")
+      .map((p) => ({ chain: p.chain as HeldToken["chain"], token: p.token }));
+  }
+
+  /**
+   * Portfolio snapshot (B2, Wave-2): shadow mode keeps the SAFE paper defaults (the spec's
+   * placeholder — the paper world never blocks on RPC jitter); LIVE mode reads the dedicated
+   * execution wallet's real balances via getRealPortfolio() (Solana token accounts + EVM
+   * ledger-vouched balanceOf + D1-persisted daily volume). With nothing configured the live read
+   * returns ZERO deployable capital — fail-CLOSED: the rails then reject every buy instead of
+   * spending money the wallet does not have.
    */
   async getPortfolio(): Promise<PortfolioSnapshot> {
-    return {
-      totalUsd: 100,
-      availableUsd: 80,
-      positions: [],
-      dailyVolumeUsd: 0,
-      lastTradeAt: { ...lastTradeAt },
-    };
+    if (this.env.EXECUTION_REAL_SPEND !== "true") {
+      return {
+        totalUsd: 100,
+        availableUsd: 80,
+        positions: [],
+        dailyVolumeUsd: 0,
+        lastTradeAt: { ...lastTradeAt },
+      };
+    }
+    try {
+      return await getRealPortfolio(this.env, { ...lastTradeAt }, this.heldTokens);
+    } catch (e) {
+      // getRealPortfolio is fail-soft internally; a throw here is unexpected — read as empty
+      // (the rails tighten) and keep the daily-volume truth from D1.
+      console.warn("[execution] real portfolio read failed (non-fatal):", (e as Error).message);
+      return {
+        totalUsd: 0,
+        availableUsd: 0,
+        positions: [],
+        dailyVolumeUsd: await queryDailyVolumeUsd(this.env),
+        lastTradeAt: { ...lastTradeAt },
+      };
+    }
   }
 
   // --------------------------- routing ---------------------------
@@ -259,6 +347,23 @@ export class ExecutionAdapter {
     }
     const { signVersionedSwap, broadcastTransaction } = await import("./solana-signer.js");
     const signed = signVersionedSwap(privateKey, swapTransaction);
+    // B7 (Wave-2): simulate BEFORE broadcasting — a tx the RPC rejects in simulation would burn
+    // priority fees and pollute the audit log. sigVerify proves OUR signature checks out;
+    // replaceRecentBlockhash lets the simulation use a fresh blockhash instead of the tx's own
+    // (which may have aged out between quote and sign). Any failure throws into the failed path.
+    const sim = await fetch(rpc, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0", id: 1, method: "simulateTransaction",
+        params: [signed.signedB64, { encoding: "base64", sigVerify: true, replaceRecentBlockhash: true }],
+      }),
+    });
+    if (!sim.ok) throw new Error(`solana simulate failed: HTTP ${sim.status}`);
+    const sj: any = await sim.json();
+    if (sj?.result?.value?.err) {
+      throw new Error(`solana simulate failed: ${JSON.stringify(sj.result.value.err)}`);
+    }
     const txHash = await broadcastTransaction(rpc, signed.signedB64);
     return {
       status: "executed",
@@ -419,49 +524,78 @@ export class ExecutionAdapter {
       throw new Error("0x returned no transaction (liquidity or allowance issue)");
     }
 
-    // ---- Approval gate (P0): confirm the AllowanceHolder can pull the sell token. ----
-    // const spender = (quote.issues?.allowance?.spender || quote.allowanceTarget) as Address;
-    // if (spender) await this.ensureAllowance(sellToken as Address, spender, BigInt(sellAmount), intent.chain, rpc);
+    // ---- Real signing + sending (viem — installed; B1, Wave-2). The 4th arming flag applies to
+    // EVM exactly as it does to Solana (P0-5 symmetry): ENABLED + REAL_SPEND + !SHADOW arms the
+    // ROUTER, EXECUTION_SIGNING_ENABLED arms the SIGNER. The arming check runs BEFORE the approval
+    // gate — an unarmed operator must not broadcast an approve tx either. Lazy-import keeps tests
+    // network-free.
+    const envRec = this.env as unknown as Record<string, string | undefined>;
+    if (!signingArmed(envRec)) {
+      throw new Error(
+        "EXECUTION_SIGNING_ENABLED!=true — signing not armed, EVM live swap refused (P0-5 symmetry)",
+      );
+    }
 
-    // ---- Real signing + sending (viem — installed). Lazy-import keeps tests network-free: ----
-    /*
-    import { createWalletClient, http, type Hash } from "viem";
-    import { privateKeyToAccount } from "viem/accounts";
-    import { base, mainnet } from "viem/chains";
+    // ---- Approval gate (P0): confirm the AllowanceHolder can pull the sell token (B1, Wave-2 —
+    // the commented gate from the spec is now LIVE; an unapproved token reverts on-chain). ----
+    const spender = (quote.issues?.allowance?.spender || quote.allowanceTarget) as Address | undefined;
+    if (spender) {
+      await this.ensureAllowance(
+        sellToken as Address,
+        spender,
+        BigInt(sellAmount),
+        intent.chain as "base" | "eth", // evmSwap only ever sees these two chains (routeAndSwap)
+        rpc,
+      );
+    }
+    const { createPublicClient, createWalletClient, http } = await import("viem");
+    const { privateKeyToAccount } = await import("viem/accounts");
+    const { base: baseChain, mainnet } = await import("viem/chains");
 
     const account = privateKeyToAccount(privateKey as `0x${string}`);
-    const chain = intent.chain === "base" ? base : mainnet;
-    const walletClient = createWalletClient({ account, chain, transport: http(rpc) });
-    const txHash: Hash = await walletClient.sendTransaction({
+    const viemChain = intent.chain === "base" ? baseChain : mainnet;
+    const walletClient = createWalletClient({ account, chain: viemChain, transport: http(rpc) });
+    const publicClient = createPublicClient({ chain: viemChain, transport: http(rpc) });
+
+    // B7 (Wave-2): the eth_call dress rehearsal — a swap that reverts in simulation throws HERE
+    // and lands in the failed path (D1 audit records the exact revert), never on-chain. Same
+    // discipline the internal OnChainFacilitator already applies to its settlement quotes.
+    await publicClient.call({
+      account,
+      to: quote.transaction.to as `0x${string}`,
+      data: quote.transaction.data as `0x${string}`,
+      value: BigInt(quote.transaction.value || "0"),
+    });
+
+    const txHash = await walletClient.sendTransaction({
       to: quote.transaction.to as `0x${string}`,
       data: quote.transaction.data as `0x${string}`,
       value: BigInt(quote.transaction.value || "0"),
       gas: quote.transaction.gas ? BigInt(quote.transaction.gas) : undefined,
     });
-    return { status: "executed", intentId: intent.id, txHash, amountIn: sellAmount, amountOut: quote.buyAmount, gasUsed: Number(quote.transaction.gas || 0), timestamp: Date.now() };
-    */
+    // 0x settlement depends on the swap actually landing — wait for the receipt before claiming
+    // "executed" (the spec's sketch skipped this; the audit log and the exits layer both read it).
+    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
 
-    const mockTxHash = `0xZER0X_SIMULATED_${intent.id.slice(0, 8)}`;
     return {
       status: "executed",
       intentId: intent.id,
-      txHash: mockTxHash,
+      txHash,
       amountIn: sellAmount,
       amountOut: quote.buyAmount,
       amountUsd:
         intent.side === "buy"
           ? amountUsd
           : Number(quote.buyAmount ?? 0) / 1_000_000, // sells: USDC received (6 dec)
-      gasUsed: Number(quote.transaction.gas || 0),
+      gasUsed: Number(receipt.gasUsed ?? quote.transaction.gas ?? 0),
       timestamp: Date.now(),
     };
   }
 
   /**
    * ERC-20 approval for the 0x AllowanceHolder (viem). Returns whether an approve tx was needed.
-   * Real code — activate alongside the commented signing block in evmSwap.
+   * LIVE since B1 (Wave-2) — the approval gate runs before every EVM swap that needs it.
    */
-  /*
   private async ensureAllowance(
     token: Address,
     spender: Address,
@@ -495,7 +629,6 @@ export class ExecutionAdapter {
     await publicClient.waitForTransactionReceipt({ hash: txHash });
     return { needed: true, txHash };
   }
-  */
 
   /** REAL address derivation via viem (installed; lazy import keeps unit tests offline). */
   private async getEvmAddress(privateKey: string): Promise<string> {
