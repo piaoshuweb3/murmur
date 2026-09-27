@@ -16,6 +16,25 @@ All notable changes to **murmur** are documented in this file. The format is bas
 
 ## [Unreleased] — P0/P1 sync (2026-09-24)
 
+### Deployed — Wave-4 integration deploy to flyx402.xyz (2026-09-27, waves 1–3 ship together)
+- **The integration deploy**: Wave-1 (meme funnel + execution positions cards, `GET /meme/snapshot`,
+  `GET /execution/positions`), Wave-2 (the real-money rails — flag-gated, EVM signing/portfolio/D1
+  daily volume/circuit breaker/pre-broadcast simulation) and Wave-3 (drawer i18n, global toast, dark
+  theme, Ultra routing switch, meme-regime stimulus, gas watchdog + amber banner) ride to production
+  in one Worker deploy. Asset fingerprints bump to `app.js?v=81` / `styles.css?v=78`.
+- **Zero armed-state drift**: the deploy re-asserted all 61 live vars captured from the running
+  worker's settings API immediately before the push — `ECONOMY_FACILITATOR=onchain`,
+  `ECONOMY_REAL_SPEND=true`, `ECONOMY_SHADOW=false`, `WAR_ENABLED=true`, `EVOLUTION_ENABLED=true`,
+  `COMMUNITY_ENABLED=true` and the six P1 flags ride again verbatim (secrets stay secrets, never in
+  the config; 63/64 free-tier budget slots). The toml keeps the safe-baseline pins; the armed set is
+  a deploy-time `--var` chain, exactly as the runbook §4 prescribes.
+- **Quality gates at deploy time**: typecheck clean across the three packages, 536/536 tests green
+  (47 fly-brain + 465 trader-worker + 24 arc-circle-x402), post-deploy /health + /state verified and
+  the two read-only endpoints answering on the live origin for the first time.
+- **R2 note (B8 backfill channel)**: the account's R2 service is not yet enabled (API error 10042 —
+  dashboard activation required), so the B8 pure-ledger tools keep their pure-DO storage; the S3
+  credentials are verified and the R2 wiring is a documented one-click backfill, not a code change.
+
 ### Added — Wave-3 i18n, theme & the guard rails (2026-09-27, frontend + worker, zero new env vars)
 - **R3 the dynamic cards speak the reader's language**: the arena drawer (live book / your position /
   you-vs-the-swarm) and the prediction drawer (live book / neural stakes / resolutions / hit-rate
