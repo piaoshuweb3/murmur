@@ -16,6 +16,36 @@ All notable changes to **murmur** are documented in this file. The format is bas
 
 ## [Unreleased] — P0/P1 sync (2026-09-24)
 
+### Added — Wave-3 i18n, theme & the guard rails (2026-09-27, frontend + worker, zero new env vars)
+- **R3 the dynamic cards speak the reader's language**: the arena drawer (live book / your position /
+  you-vs-the-swarm) and the prediction drawer (live book / neural stakes / resolutions / hit-rate
+  leaderboard) are fully wrapped in `T()` — i18n-ui gains ~113 keys in en + zh (labels, blurbs, honest
+  empty states, claim/bet buttons, countdown lines); other languages fall back to English as usual.
+- **R4 the global toast**: a single self-healing element (3.5 s, `role=status`, info/warn/error) ends
+  the era of silent `catch {}` at the five poll seams (exec logs, positions, meme snapshot, proofs,
+  arena, economy) — the offline state keeps its own voice; the toast fills the "online but one endpoint
+  broke" seam, throttled to once per 60 s per source.
+- **R5 the dark theme**: token-only mirror layers (`prefers-color-scheme` for readers who never touch
+  the toggle, explicit `[data-theme]` override as the reader's final say, including `--ink-rgb` for the
+  rgba-heavy chrome), plus a DARK live-palette interval in app.js so the temperature writeback keeps
+  warming/cooling the scene instead of fighting the mirror; a sun/moon topbar toggle persists to
+  `localStorage` (`murmur-theme`); light remains the default with byte-identical rendering.
+- **B4 Jupiter Ultra routing switch**: `EXECUTION_ROUTE_ULTRA` code-constant (default OFF = the v1
+  path byte-for-byte; the var pool stays 62/64) routes Solana swaps through the pre-built
+  `solanaSwapUltra` (/order → sign → /execute); three contract tests prove the OFF path never touches
+  Ultra, the ON path walks order→sign→execute, and an unarmed signer burns zero /order requests.
+- **B5 meme regime-edge stimulus**: `meme/stimulus.ts` maps a meme regime CROSSING (not the level —
+  that already flows through the temperature fusion) onto the four existing visitor channels —
+  DUMP/RUG_RISK→threat, PUMP→food, NEUTRAL→light — at the programmatic feeling-leg cap (0.35; settle
+  0.15), provenance-tagged `meme:PREV->NEXT`, edge state in DO storage so a restart cannot fake one.
+- **C2 resolver gas watchdog**: one read-only `eth_getBalance` per cron against the facilitator wallet
+  (zero gas spent); below the 0.5-native floor it warns once on the operator console, mirrors
+  `{atomic, low, checkedAt}` into DO storage + `/state.resolverGas`, and the frontend raises an amber
+  `#gas-warn` banner (the cron-warn's sibling) that names the funding need. Ops signals stay out of
+  the chronicle on purpose — the chronicle remains civilization narrative.
+- Fixed the mangled `.cron-warnidden]` selector (now `.cron-warn[hidden]`); version fingerprint
+  advances app v80 / styles v77 / i18n v71·74; 10 new tests, suite **536 green** (465 + 47 + 24).
+
 ### Added — Wave-2 the real-money rails (2026-09-27, execution-layer, flag-gated behind REAL_SPEND)
 - **B1 EVM real signing (0x allowance-holder → viem)**: the commented signing stub is now LIVE — quote →
   approval gate (`ensureAllowance`, max-approve once, receipt-waited) → signer arming check (the 4th flag
