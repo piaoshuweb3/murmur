@@ -91,6 +91,9 @@ import { BourseMeter, reduceBourseLegs, sampleBourseTransfers, coinStimuli, type
 import { Religion } from "./religion.js";
 import { composePoem, poemHash, PoetLedger } from "./poet.js";
 import { eraStimuli } from "./socialStimulus.js";
+// B8 REFORM（v1.7 纯账本三工具）：遗产税/禧年 —— 代码常量开关，零新增 env var、零链上调用、零 gas。
+// 边界：文明层账本叙事，与 WarCoffer 链上 levyTax 实金划转互不混淆（详见 reform.ts 头注）。
+import { REFORM_ENABLED, REFORM_GINI_TRIGGER, reformEstateTaxGraves, reformJubileeReady } from "./reform.js";
 
 const KEY_METER = "marketMeter:v1";
 const KEY_MARKET = "market:v1";
@@ -273,6 +276,9 @@ export class FlyStateDO {
   private resolverGas: { atomic: string; low: boolean; checkedAt: number } | null = null;
   /** Consecutive crons below the gas floor (drives the fire-once operator warning, like the chronicle cooldowns). */
   private lowGasCrons = 0;
+  /** B8 REFORM ② —— gini 连续超线的 cron 计数（null = 尚未水合；内存优先 + DO storage 镜像，
+   *  同 resolverGas 的双层防驱逐模式：isolate 被驱逐不得清零一次进行中的超线连击）。 */
+  private reformGiniOverCrons: number | null = null;
 
   constructor(state: DurableObjectState, env: Env) {
     this.state = state;
@@ -1569,6 +1575,63 @@ export class FlyStateDO {
     }
   }
 
+  /**
+   * B8 REFORM ② —— the JUBILEE stabilizer（禧年稳定器 · 债务全免事件）。纯账本叙事：gini 连续
+   * REFORM_GINI_CRON_N 个 cron 保持在 ≥ REFORM_GINI_TRIGGER 且蜂群不安（AGITATE 占比 ≥ 0.5）时落锤，
+   * 每纪元至多一次（era 一次性闩）。overLineCrons 计数为类字段 + DO storage 镜像（resolverGas 的
+   * 内存→storage 双层防驱逐模式）。零链上调用、零 gas、零资金旗依赖；与 WarCoffer levyTax 互不混淆。
+   * v1 可及边界：真正的债务科目（economy.ious）与 Commons/UBI 科目在 economy.ts 私有域、编年史新行文
+   * 需 chronicler.ts 新增 ChronicleKind —— 均不在本任务文件边界内，故 v1 事件落地为 ops 日志 + DO
+   * storage 禧年台账（reform:jubileeEra / reform:jubileeTick）+ /state.reform 读出；卷行文配方见 reform.ts 头注。
+   */
+  private async driveReformJubilee(tick: number, snapshot: PopulationSnapshot | null): Promise<void> {
+    const gini = this.lastEconomy?.totals?.gini ?? 0;
+    const col = snapshot?.collective;
+    const size = Math.max(1, col?.size ?? 0);
+    const agitation = clamp((col?.states?.AGITATE ?? 0) / size, 0, 1);
+    // 连续超线计数：内存优先、storage 兜底水合（防驱逐清零），每 cron 回写镜像。
+    if (this.reformGiniOverCrons == null) {
+      this.reformGiniOverCrons = (await this.state.storage.get<number>("reform:giniOverCrons")) ?? 0;
+    }
+    this.reformGiniOverCrons = gini >= REFORM_GINI_TRIGGER ? this.reformGiniOverCrons + 1 : 0;
+    await this.state.storage.put("reform:giniOverCrons", this.reformGiniOverCrons);
+    if (!reformJubileeReady(gini, agitation, this.reformGiniOverCrons)) return;
+    // 一次性闩：每纪元至多一次禧年（era 取自历史学家自己的计数器；无历史学家 ⇒ 0 同样可闩）。
+    const era = this.chronicler?.eraInfo().era ?? 0;
+    if (((await this.state.storage.get<number>("reform:jubileeEra")) ?? -1) === era) return;
+    await this.state.storage.put("reform:jubileeEra", era);
+    await this.state.storage.put("reform:jubileeTick", tick);
+    console.log(
+      `[DO] reform: JUBILEE at era ${era} tick ${tick} — gini ${gini.toFixed(3)} held ≥ ${REFORM_GINI_TRIGGER} ` +
+        `for ${this.reformGiniOverCrons} crons with agitation ${(agitation * 100).toFixed(0)}%; ` +
+        `all debts are forgiven on the civilization ledger (narrative event — the IOU-book wipe lands with economy.ts access)`,
+    );
+  }
+
+  /**
+   * B8 REFORM 读出：禧年计数/一次性闩 + 遗产税台账镜像（纯 storage 读，叙事科目；键缺失即零/-null）。
+   * 计数内存优先（本 isolate 已水合的连击比镜像新），其余键以 storage 为准 —— 与 resolverGas 同款双层。
+   */
+  private async reformReadout(): Promise<{
+    giniOverCrons: number;
+    jubileeEra: number | null;
+    jubileeTick: number | null;
+    taxCollectedUsdc: number;
+    taxToCommonsUsdc: number;
+    taxToUbiUsdc: number;
+  }> {
+    const over =
+      this.reformGiniOverCrons ?? ((await this.state.storage.get<number>("reform:giniOverCrons")) ?? 0);
+    return {
+      giniOverCrons: over,
+      jubileeEra: (await this.state.storage.get<number>("reform:jubileeEra")) ?? null,
+      jubileeTick: (await this.state.storage.get<number>("reform:jubileeTick")) ?? null,
+      taxCollectedUsdc: atomicToUsdc((await this.state.storage.get<string>("reform:taxAtomic")) ?? "0"),
+      taxToCommonsUsdc: atomicToUsdc((await this.state.storage.get<string>("reform:taxCommonsAtomic")) ?? "0"),
+      taxToUbiUsdc: atomicToUsdc((await this.state.storage.get<string>("reform:taxUbiAtomic")) ?? "0"),
+    };
+  }
+
   // ---------- HTTP routing ----------
 
   async fetch(req: Request): Promise<Response> {
@@ -1905,6 +1968,40 @@ export class FlyStateDO {
           }
         }
       }
+      // B8 REFORM ① —— 遗产税（REFORM v1.7 纯账本叙事）。旗关 ⇒ 整块短路，字节级等于今日；旗开也绝不
+      // 改写 economy 的遗产分配（净遗产照旧分配），只把“应征税额”记入账本镜像 + ops 日志。
+      // 保守接法（任务书授权的退化）：真实分配在 economy.entomb() 内部先行完成（子女→家库→贫民施舍），
+      // 且 Commons/UBI 记账科目同样封闭在 economy.ts 私有域 —— 均不在本任务文件边界（state.ts/reform.ts）
+      // 可及；编年史卷行文另受 verifyChain 的模板重推导校验约束（新增 ChronicleKind 需改 chronicler.ts，
+      // 同样越界）。故 v1 退化为“税额记入账本镜像（reform:tax*Atomic）+ ops 日志”，Commons/UBI 科目接线
+      // 与 JUBILEE/ESTATE_TAX 卷行文配方一并留给 economy.ts/chronicler.ts 开放的下一轮（见 reform.ts 头注）。
+      if (REFORM_ENABLED && graves.length) {
+        try {
+          const levy = reformEstateTaxGraves(graves);
+          if (levy.taxedIds.length > 0) {
+            const sum = (prev: string | undefined, add: string) => String(BigInt(prev ?? "0") + BigInt(add));
+            await this.state.storage.put(
+              "reform:taxAtomic",
+              sum(await this.state.storage.get<string>("reform:taxAtomic"), levy.taxAtomic),
+            );
+            await this.state.storage.put(
+              "reform:taxCommonsAtomic",
+              sum(await this.state.storage.get<string>("reform:taxCommonsAtomic"), levy.toCommonsAtomic),
+            );
+            await this.state.storage.put(
+              "reform:taxUbiAtomic",
+              sum(await this.state.storage.get<string>("reform:taxUbiAtomic"), levy.toUbiAtomic),
+            );
+            console.log(
+              `[DO] reform: estate tax ${atomicToUsdc(levy.taxAtomic)} USDC on grave #${levy.taxedIds.join(", #")} — ` +
+                `${atomicToUsdc(levy.toCommonsAtomic)} to the commons, ${atomicToUsdc(levy.toUbiAtomic)} to UBI ` +
+                `(ledger narrative; the estates already inherited net — no on-chain call, no gas)`,
+            );
+          }
+        } catch (e) {
+          console.warn("[DO] reform estate tax failed (non-fatal):", (e as Error).message);
+        }
+      }
       // LIVE-RETIRE backlog reconciliation: a fly that died BEFORE retirement shipped (or whose retire fetch
       // failed on an earlier cron) is STILL in the swarm roster even though the economy has entombed it.
       // noteMortality only reports NEW graves, so reconcile the live roster against the economy's dead set and
@@ -2126,6 +2223,16 @@ export class FlyStateDO {
     //    moves no money, inert while LAW_ENABLED=false. Best-effort — a failure only skips a council.
     await this.driveCommons();
 
+    // 8b) B8 REFORM ② —— the JUBILEE（driveCommons 调用点接线）。旗关 ⇒ 整块短路，字节级等于今日；
+    //     旗开也是纯账本叙事（读 lastEconomy 的 gini + 集体态的 AGITATE 占比），尽力而为不伤 tick。
+    if (REFORM_ENABLED) {
+      try {
+        await this.driveReformJubilee(swarm.getTickIndex(), snapshot ?? this.lastSnapshot);
+      } catch (e) {
+        console.warn("[DO] reform jubilee failed (non-fatal):", (e as Error).message);
+      }
+    }
+
     console.log(
       `[DO] cron tick#${swarm.getTickIndex()} T=${temperature.toFixed(3)} ${regime} ` +
         `size=${snapshot?.collective.size ?? 0} subTicks=${subTicks} deals=${deals}`,
@@ -2313,6 +2420,8 @@ export class FlyStateDO {
       liveRetire: this.cfg.liveRetire,
       vitality: swarm.getVitality(),
       resolverGas,
+      // B8 REFORM 读出（v1.7）：旗开才有 reform 键 —— 关旗 ⇒ 无键 ⇒ /state 字节级等于今日。
+      ...(REFORM_ENABLED ? { reform: await this.reformReadout() } : {}),
       collective: snap?.collective ?? null,
       economy: econTotals
         ? {

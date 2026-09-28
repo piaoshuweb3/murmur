@@ -1,0 +1,314 @@
+/* ==========================================================================
+   murmur · Wave-5 E 线 —— 交易所 UI 专业化独立模块（exchange.css）
+   ----------------------------------------------------------------------------
+   纪律（Task 49-exc）：
+   · 本文件独立自包含，绝不覆盖/引用共享 styles.css 的规则；类名一律 exch- 前缀防冲突；
+   · 颜色/字体只用 styles.css 既有 CSS 变量（--ink/--panel/--hair/--accent/--ink-rgb/
+     --aggregate/--explore/--agitate/--mono/--display/--pad/--ann-h/--muted），
+     暗色主题经变量自动生效；新增变量一律定义在 .exch-panel 作用域内并给亮/暗两套；
+   · 不使用 position:fixed（桌面用 absolute 相对初始包含块，页面无滚动时视觉等同；
+     ≤680px 或矮视口随共享样式进入文档流自然堆叠）；z-index 只用面板层 10，不越界；
+   · 面板内 max-height + overflow-y:auto；≤680px 单列堆叠。
+   ========================================================================== */
+
+/* ---------- 作用域内新增变量（亮色默认 = styles.css :root 同源值） ---------- */
+.exch-panel {
+  --exch-red: #b03a2e;        /* rug 风险红（与既有 .mf-regime.r-RUG_RISK 同源） */
+  --exch-red-rgb: 176, 58, 46;
+  --exch-amber: #8a6d1a;      /* rug 风险琥珀（与既有 .mf-regime.r-DUMP 同源） */
+  --exch-good: #2f6b4f;       /* PUMP 绿（与既有 .mf-regime.r-PUMP 同源） */
+  --exch-track: rgba(var(--ink-rgb), 0.1);      /* 表盘轨道 / 热度条底 */
+  --exch-row-hover: rgba(var(--accent-rgb), 0.08);
+  --exch-whale-bg: rgba(var(--accent-rgb), 0.1);
+  --exch-skel: rgba(var(--ink-rgb), 0.09);      /* 骨架屏微光条底色 */
+  --exch-skel-hi: rgba(var(--ink-rgb), 0.16);
+}
+
+/* ---------- 暗色镜像（复刻 styles.css 的三层机制：显式 dark / 系统 dark / 显式 light） ---------- */
+:root[data-theme="dark"] .exch-panel {
+  --exch-red: #cf6a5c;
+  --exch-red-rgb: 207, 106, 92;
+  --exch-amber: #b3923a;
+  --exch-good: #5d9b7c;
+  --exch-track: rgba(var(--ink-rgb), 0.14);
+  --exch-row-hover: rgba(var(--accent-rgb), 0.12);
+  --exch-whale-bg: rgba(var(--accent-rgb), 0.14);
+  --exch-skel: rgba(var(--ink-rgb), 0.12);
+  --exch-skel-hi: rgba(var(--ink-rgb), 0.2);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .exch-panel {
+    --exch-red: #cf6a5c;
+    --exch-red-rgb: 207, 106, 92;
+    --exch-amber: #b3923a;
+    --exch-good: #5d9b7c;
+    --exch-track: rgba(var(--ink-rgb), 0.14);
+    --exch-row-hover: rgba(var(--accent-rgb), 0.12);
+    --exch-whale-bg: rgba(var(--accent-rgb), 0.14);
+    --exch-skel: rgba(var(--ink-rgb), 0.12);
+    --exch-skel-hi: rgba(var(--ink-rgb), 0.2);
+  }
+}
+
+/* ---------- 面板根：复刻 .panel 的纸质观感（不借用共享类，保持零耦合） ---------- */
+.exch-panel {
+  z-index: 10;                                   /* 面板层，不越界（抽屉 12 / 横幅 29+ / toast 90） */
+  background: var(--panel);
+  border: 1px solid var(--hair);
+  border-radius: 2px;
+  padding: 12px 14px;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.4) inset, 0 8px 30px rgba(var(--ink-rgb), 0.05);
+  transition: background 1.6s linear, border-color 1.6s linear;
+  font-family: var(--mono);
+  color: var(--ink);
+  text-align: left;
+}
+.exch-panel[hidden] { display: none; }           /* hidden 属性必须压过 display:grid */
+
+/* ---------- 桌面（≥821px）：顶部居中浮动面板（净空公式避开左右角面板与顶部胶囊/横幅） ---------- */
+@media (min-width: 821px) {
+  .exch-panel {
+    position: absolute;                          /* 非 fixed：相对初始包含块，页面无滚动时视觉等同 */
+    top: calc(var(--pad) + 70px);                /* 让开 layer-toggles(≈+52px) 与 cron/gas 横幅(≈+63px) */
+    left: 50%;
+    transform: translateX(-50%);
+    width: clamp(300px, calc(46vw - 2 * var(--pad) - 24px), 540px); /* 净宽避让左右角面板 */
+    --exch-maxh: calc(100vh - var(--pad) - 216px); /* 底缘始终悬在 era-hud / 提示行之上 */
+    max-height: var(--exch-maxh);
+  }
+  /* 公告条在台时与共享 chrome 同步下移（body.ann-open + --ann-h 由 app.js 测量写入） */
+  body.ann-open .exch-panel { top: calc(var(--pad) + 70px + var(--ann-h, 0px)); }
+}
+
+/* 平板档（681..820px）：与共享 ≤820 层的收窄角面板对齐，单列更窄 */
+@media (min-width: 681px) and (max-width: 820px) {
+  .exch-panel {
+    position: absolute;
+    top: calc(var(--pad) + 70px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(420px, calc(100vw - 2 * var(--pad) - 2 * clamp(180px, 40vw, 200px) - 44px));
+    --exch-maxh: calc(100vh - var(--pad) - 150px);
+    max-height: var(--exch-maxh);
+  }
+  body.ann-open .exch-panel { top: calc(var(--pad) + 70px + var(--ann-h, 0px)); }
+}
+
+/* 手机/矮视口（≤680px 或 ≤600px 高）：进入文档流单列堆叠——DOM 上紧跟 .panel-temp 之后，
+   自然排在温度面板与人口面板之间；html/body 的滚动行为由 styles.css 同一媒体查询接管 */
+@media (max-width: 680px), (max-height: 600px) {
+  .exch-panel {
+    position: relative;
+    left: auto; right: auto; top: auto; transform: none;
+    width: auto;
+    max-width: min(92vw, 460px);
+    margin: 0 auto 12px;
+    --exch-maxh: 78vh;
+    max-height: 78vh;
+  }
+}
+
+/* ---------- 面板头 ---------- */
+.exch-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  margin-bottom: 8px;
+}
+.exch-title {
+  font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--muted); font-weight: 500;
+}
+.exch-live {
+  font-size: 8.5px; letter-spacing: 0.14em; text-transform: lowercase;
+  color: var(--muted); opacity: 0.75; white-space: nowrap;
+}
+.exch-live.on { color: var(--accent); opacity: 1; }
+
+/* ---------- 面板体：桌面 ≥1100px 双列（左=表盘+微观四格，右=tape+观察名单） ---------- */
+.exch-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);         /* 默认单列 */
+  gap: 10px 16px;
+  max-height: calc(var(--exch-maxh, 70vh) - 56px); /* 让出面板头/内边距，总高不越面板 max-height */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+@media (min-width: 1100px) {
+  .exch-body { grid-template-columns: 218px minmax(0, 1fr); align-items: start; }
+  .exch-col-left { position: sticky; top: 0; }   /* 双列时左列钉住，右列独立滚动 */
+}
+
+/* ---------- 分区标题 ---------- */
+.exch-sub {
+  font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--muted); margin: 10px 0 6px;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.exch-col-left .exch-sub:first-child { margin-top: 0; }
+
+/* ---------- Fever 半环表盘 ---------- */
+.exch-gauge { position: relative; margin: 2px auto 0; max-width: 218px; }
+.exch-gauge svg { display: block; width: 100%; height: auto; }
+.exch-gauge-track { fill: none; stroke: var(--exch-track); stroke-linecap: round; }
+.exch-gauge-fill { fill: none; stroke-linecap: round; transition: stroke-dasharray 1.2s cubic-bezier(0.22, 1, 0.36, 1); }
+.exch-gauge-tick { stroke: rgba(var(--ink-rgb), 0.45); stroke-width: 1.5; }
+.exch-gauge-center {
+  position: absolute; left: 0; right: 0; top: 44%; transform: translateY(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  pointer-events: none;
+}
+.exch-gauge-num {
+  font-family: var(--display); font-style: italic; font-weight: 300;
+  font-size: clamp(21px, 2.2vw, 26px);
+  color: var(--ink); opacity: 0.85; font-variant-numeric: tabular-nums;
+}
+.exch-gauge-word {
+  font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted);
+}
+.exch-gauge-word.hot { color: var(--agitate); }
+.exch-gauge-word.cool { color: var(--aggregate); }
+.exch-gauge-word.quiet { color: var(--explore); }
+.exch-gauge-cap {
+  display: flex; justify-content: space-between;
+  font-size: 8px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--muted); opacity: 0.7; margin-top: 2px;
+}
+
+/* ---------- 成交量 sparkline ---------- */
+.exch-spark { position: relative; }
+.exch-spark svg { display: block; width: 100%; height: 54px; }
+.exch-spark-line { fill: none; stroke: var(--accent); stroke-width: 1.4; }
+.exch-spark-area { opacity: 0.55; }
+.exch-spark-note {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 9px; letter-spacing: 0.1em; color: var(--muted);
+}
+
+/* ---------- 微观四格（复刻 .micro 的 dt/dd 网格气质） ---------- */
+.exch-micro {
+  margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--hair);
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px;
+}
+.exch-micro > div { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.exch-micro dt {
+  font-size: 8.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted);
+}
+.exch-micro dd {
+  font-size: 11px; font-variant-numeric: tabular-nums; color: var(--ink); opacity: 0.85;
+  white-space: nowrap;
+}
+
+/* ---------- Tape 事件流 ---------- */
+.exch-tape { display: flex; flex-direction: column; gap: 4px; }
+.exch-tape-scroll { max-height: 168px; overflow-y: auto; scrollbar-width: thin; display: flex; flex-direction: column; gap: 4px; }
+.exch-ev {
+  display: grid; grid-template-columns: 14px auto minmax(0, 1fr) auto;
+  align-items: baseline; gap: 6px;
+  padding: 4px 6px; border-radius: 2px;
+  font-size: 10px; line-height: 1.45;
+}
+.exch-ev-ico { text-align: center; color: var(--muted); }
+.exch-ev-kind {
+  font-size: 8px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--muted); white-space: nowrap;
+}
+.exch-ev-detail { color: var(--ink); opacity: 0.82; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.exch-ev-ago { font-size: 8.5px; color: var(--muted); opacity: 0.7; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.exch-ev.is-breakout .exch-ev-ico { color: var(--explore); }
+.exch-ev.is-breakout .exch-ev-kind { color: var(--explore); }
+.exch-ev.is-whale { background: var(--exch-whale-bg); }          /* whale 行高亮 */
+.exch-ev.is-whale .exch-ev-ico,
+.exch-ev.is-whale .exch-ev-kind { color: var(--aggregate); }
+.exch-ev.is-silence .exch-ev-ico { color: var(--rest); }
+.exch-noev { font-size: 10px; color: var(--muted); padding: 4px 2px; }
+
+/* whale 布林线（独立于事件流的当 tick 鲸鱼标记） */
+.exch-whale {
+  margin-top: 8px; padding: 5px 8px; font-size: 9.5px;
+  color: var(--aggregate); background: var(--exch-whale-bg);
+  border: 1px solid rgba(var(--aggregate-rgb, 91, 124, 141), 0.3); border-radius: 2px;
+}
+
+/* ---------- 更新时间 / 降级徽标 ---------- */
+.exch-foot {
+  margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--hair);
+  font-size: 8px; letter-spacing: 0.08em; color: var(--muted); opacity: 0.65; text-align: center;
+}
+.exch-stale {
+  display: inline-block; margin-top: 6px; padding: 1px 8px 2px;
+  font-size: 8.5px; letter-spacing: 0.08em;
+  color: var(--exch-amber); border: 1px solid var(--exch-amber); border-radius: 999px;
+}
+
+/* ---------- 诚实空态（整面板级） ---------- */
+.exch-empty {
+  padding: 14px 6px 10px; text-align: center;
+  font-size: 10.5px; line-height: 1.6; color: var(--muted);
+}
+.exch-empty b { display: block; font-weight: 500; color: var(--ink); opacity: 0.75; margin-bottom: 3px; }
+
+/* ---------- 骨架占位（自绘微光条，不改共享 .skel） ---------- */
+.exch-skel {
+  height: 10px; border-radius: 2px; margin: 6px 0;
+  background: linear-gradient(90deg, var(--exch-skel) 25%, var(--exch-skel-hi) 50%, var(--exch-skel) 75%);
+  background-size: 200% 100%;
+  animation: exch-shimmer 1.6s linear infinite;
+}
+.exch-skel.w60 { width: 60%; } .exch-skel.w40 { width: 40%; } .exch-skel.w80 { width: 80%; }
+@keyframes exch-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .exch-skel { animation: none; } }
+
+/* ---------- meme 观察名单 ---------- */
+.exch-watch-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.exch-regime {
+  display: inline-block; padding: 1px 8px 2px;
+  font-size: 8.5px; letter-spacing: 0.08em; border-radius: 999px;
+  border: 1px solid var(--hair); color: var(--muted);
+}
+.exch-regime.r-PUMP { color: var(--exch-good); border-color: var(--exch-good); }
+.exch-regime.r-DUMP { color: var(--exch-amber); border-color: var(--exch-amber); }
+.exch-regime.r-RUG_RISK { color: var(--exch-red); border-color: var(--exch-red); }
+.exch-chain {
+  margin: 8px 0 3px; font-size: 8.5px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--muted); display: flex; align-items: baseline; gap: 6px;
+}
+.exch-chain em { font-style: normal; opacity: 0.6; letter-spacing: 0.06em; }
+.exch-wcols {
+  display: grid; grid-template-columns: minmax(0, 1fr) 92px 58px; gap: 8px;
+  font-size: 8px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+  padding: 0 6px 2px; opacity: 0.75;
+}
+.exch-wrow {
+  width: 100%; text-align: left; font: inherit; color: inherit;
+  display: grid; grid-template-columns: minmax(0, 1fr) 92px 58px; gap: 8px; align-items: center;
+  padding: 4px 6px; border: 0; border-radius: 2px; background: transparent; cursor: pointer;
+}
+.exch-wrow:hover, .exch-wrow:focus-visible { background: var(--exch-row-hover); outline: none; }
+.exch-wtok {
+  font-family: var(--mono); font-size: 10px; color: var(--ink); opacity: 0.85;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+.exch-wheat { display: flex; align-items: center; gap: 6px; }
+.exch-wtrack { flex: 1; height: 5px; background: var(--exch-track); position: relative; }
+.exch-wfill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent); transition: width 1s cubic-bezier(0.22, 1, 0.36, 1); }
+.exch-wscore { font-size: 9px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 26px; text-align: right; }
+.exch-wrisk { font-size: 9px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.exch-wrisk.hi { color: var(--exch-red); font-weight: 500; }
+.exch-wrisk.mid { color: var(--exch-amber); }
+/* rug-risk 着色同步到热度条（与共享 mf-bar .fill.risk 同纪律） */
+.exch-wrow.risk-hi .exch-wfill { background: var(--exch-red); }
+.exch-wrow.risk-mid .exch-wfill { background: var(--exch-amber); }
+/* 展开明细行 */
+.exch-wdetail {
+  margin: 2px 0 4px; padding: 6px 8px;
+  border: 1px dashed var(--hair); border-radius: 2px;
+  font-size: 9px; line-height: 1.6; color: var(--muted);
+  display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 10px;
+}
+.exch-wdetail dt { text-transform: uppercase; letter-spacing: 0.1em; font-size: 8px; }
+.exch-wdetail dd { color: var(--ink); opacity: 0.8; overflow-wrap: anywhere; }
+.exch-wnote { font-size: 10px; color: var(--muted); padding: 4px 2px; }
+
+/* ---------- RTL（ar 等右到左语言激活时镜像内边距方向，走既有 html[dir] 机制） ---------- */
+html[dir="rtl"] .exch-head { direction: rtl; }
+html[dir="rtl"] .exch-body { direction: rtl; }

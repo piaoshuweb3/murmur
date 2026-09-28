@@ -33,7 +33,7 @@
 // i18n kernel — pure read-out localisation layer (never touches sim/economy/proof).
 // NOTE: `t` is used all over this file as a local (time/totals/lerp), so we import the
 // translator under the alias `T` to avoid any shadowing. ct() = chronicle display, gl() = glossary.
-import { t as T, ct, gl, currentLang, getLang, setLang, applyDom, SUPPORTED, ENDONYMS } from "./i18n.js?v=72";
+import { t as T, ct, gl, currentLang, getLang, setLang, applyDom, SUPPORTED, ENDONYMS } from "./i18n.js?v=73";
 
 const params = new URLSearchParams(location.search);
 const API =
@@ -4878,19 +4878,19 @@ function renderProofs() {
   // autonomy attestation header
   const auto = document.createElement("div"); auto.className = "pf-auto";
   auto.innerHTML =
-    `<div class="pf-auto-title">autonomy attestation</div>` +
-    `<p class="pf-auto-body">No LLM and no human signs these trades. Each real transfer's EIP-3009 <b>nonce</b> IS the sha256 of the neural receipt that caused it — recompute it in your browser below, then read the same nonce off Arc.</p>` +
+    `<div class="pf-auto-title">${T("pf.title")}</div>` +
+    `<p class="pf-auto-body">${T("pf.body")}</p>` +
     `<dl class="pf-auto-meta">` +
-    `<div><dt>policy</dt><dd>${proofsMeta ? proofsMeta.policy : "–"}</dd></div>` +
-    `<div><dt>schema</dt><dd>v${proofsMeta ? proofsMeta.version : "–"}</dd></div>` +
-    `<div><dt>chain head</dt><dd class="fp">${shortHash(proofsMeta ? proofsMeta.chainHead : "")}</dd></div>` +
-    `<div><dt>receipts</dt><dd>${proofs.length}</dd></div>` +
+    `<div><dt>${T("pf.policy")}</dt><dd>${proofsMeta ? proofsMeta.policy : "–"}</dd></div>` +
+    `<div><dt>${T("pf.schema")}</dt><dd>v${proofsMeta ? proofsMeta.version : "–"}</dd></div>` +
+    `<div><dt>${T("pf.chainHead")}</dt><dd class="fp">${shortHash(proofsMeta ? proofsMeta.chainHead : "")}</dd></div>` +
+    `<div><dt>${T("pf.receipts")}</dt><dd>${proofs.length}</dd></div>` +
     `</dl>`;
   body.appendChild(auto);
 
   if (!proofs.length) {
     const empty = document.createElement("p"); empty.className = "pf-empty";
-    empty.textContent = "no on-chain receipts yet — the first net settlement will appear here.";
+    empty.textContent = T("pf.empty");
     body.appendChild(empty);
     return;
   }
@@ -4906,7 +4906,7 @@ function proofCard(p) {
   const tr = document.createElement("span"); tr.className = "pf-trades"; tr.textContent = `${r.trades} trade${r.trades === 1 ? "" : "s"} · ${r.constituents.length} pinned`;
   const link = document.createElement("a"); link.className = "tx-link"; link.href = `${ARC_EXPLORER}/tx/${p.txHash}`;
   link.target = "_blank"; link.rel = "noopener noreferrer"; link.textContent = `↗ ${shortHash(p.txHash)}`;
-  const vbtn = document.createElement("button"); vbtn.type = "button"; vbtn.className = "pf-verify"; vbtn.dataset.tx = p.txHash; vbtn.textContent = "verify";
+  const vbtn = document.createElement("button"); vbtn.type = "button"; vbtn.className = "pf-verify"; vbtn.dataset.tx = p.txHash; vbtn.textContent = T("pf.verify");
   const ebtn = document.createElement("button"); ebtn.type = "button"; ebtn.className = "pf-expand"; ebtn.dataset.tx = p.txHash; ebtn.textContent = "+";
   head.append(tick, amt, tr, link, vbtn, ebtn);
   const vout = document.createElement("div"); vout.className = "pf-verifyout"; vout.hidden = true;
@@ -4921,26 +4921,26 @@ function proofDetail(p) {
   const wrap = document.createElement("div");
   const meta = document.createElement("dl"); meta.className = "pf-meta";
   meta.innerHTML =
-    `<div><dt>pair</dt><dd>${r.pair[0]} ⇄ ${r.pair[1]}</dd></div>` +
-    `<div><dt>net flows</dt><dd>${r.debtor} → ${r.creditor}</dd></div>` +
-    `<div><dt>good</dt><dd>${r.good}</dd></div>` +
-    `<div><dt>flush</dt><dd>#${r.flushSeq}·c${r.chunk}</dd></div>` +
-    `<div><dt>receipt sha256</dt><dd class="fp">${shortHash(p.receiptHash)}</dd></div>` +
-    `<div><dt>prev chain</dt><dd class="fp">${r.prevChain ? shortHash(r.prevChain) : "genesis"}</dd></div>` +
-    (p.ipfsCid ? `<div><dt>ipfs cid</dt><dd class="fp">${shortHash(p.ipfsCid)}</dd></div>` : "");
+    `<div><dt>${T("pf.pair")}</dt><dd>${r.pair[0]} ⇄ ${r.pair[1]}</dd></div>` +
+    `<div><dt>${T("pf.netFlows")}</dt><dd>${r.debtor} → ${r.creditor}</dd></div>` +
+    `<div><dt>${T("pf.good")}</dt><dd>${r.good}</dd></div>` +
+    `<div><dt>${T("pf.flush")}</dt><dd>#${r.flushSeq}·c${r.chunk}</dd></div>` +
+    `<div><dt>${T("pf.sha")}</dt><dd class="fp">${shortHash(p.receiptHash)}</dd></div>` +
+    `<div><dt>${T("pf.prevChain")}</dt><dd class="fp">${r.prevChain ? shortHash(r.prevChain) : T("pf.genesis")}</dd></div>` +
+    (p.ipfsCid ? `<div><dt>${T("pf.ipfs")}</dt><dd class="fp">${shortHash(p.ipfsCid)}</dd></div>` : "");
   wrap.appendChild(meta);
-  const ct = document.createElement("div"); ct.className = "pf-ct-title"; ct.textContent = "frozen neural read-out per folded trade";
+  const ct = document.createElement("div"); ct.className = "pf-ct-title"; ct.textContent = T("pf.frozen");
   wrap.appendChild(ct);
   for (const c of r.constituents) {
     const row = document.createElement("div"); row.className = "pf-ct";
     row.innerHTML =
       `<div class="pf-ct-head"><b>${c.fromId} → ${c.toId}</b><span>${c.good}</span><span>${atomicToUsdc(c.amount).toFixed(4)}</span><span class="fp">${shortHash(c.decisionHash)}</span></div>` +
-      `<div class="pf-ct-ev">buyer ${c.buyer.state} a=${c.buyer.arousal} c=${c.buyer.cohesion} · seller ${c.seller.state} a=${c.seller.arousal} c=${c.seller.cohesion}</div>`;
+      `<div class="pf-ct-ev">${T("pf.buyer")} ${c.buyer.state} a=${c.buyer.arousal} c=${c.buyer.cohesion} · ${T("pf.seller")} ${c.seller.state} a=${c.seller.arousal} c=${c.seller.cohesion}</div>`;
     ct.appendChild(row);
   }
   if (!r.constituents.length) {
     const note = document.createElement("div"); note.className = "pf-ct-ev";
-    note.textContent = "net opened before provenance deployed — no neural constituents pinned for this one.";
+    note.textContent = T("pf.noConstituents");
     ct.appendChild(note);
   }
   wrap.appendChild(ct);
@@ -4955,7 +4955,7 @@ async function verifyProof(tx, card) {
   if (stored) { try { clientHash = await sha256HexClient(stored.receipt); } catch { clientHash = null; } }
   try {
     const v = await getJSON(`/proofs/verify?tx=${encodeURIComponent(tx)}`, 9000);
-    if (!v.found) { out.textContent = "receipt not found for this tx"; return; }
+    if (!v.found) { out.textContent = T("pf.notFound"); return; }
     const selfOk = clientHash == null || clientHash === v.receiptHash;
     const onchainOk = v.match === true;
     // Trustless chain-ordering: read our NeuralReceiptRegistry DIRECTLY from Arc RPC in the browser

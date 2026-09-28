@@ -16,6 +16,36 @@ All notable changes to **murmur** are documented in this file. The format is bas
 
 ## [Unreleased] — P0/P1 sync (2026-09-24)
 
+### Deployed — Wave-5: the third feature extension — exchange & social surfaces, the REFORM ledger, and the C-line sweep (2026-09-28)
+- **B8 REFORM v1.7 (pure ledger, default OFF)**: new `reform.ts` — progressive estate tax
+  (5 USDC threshold, 10/25/40% bracket ladder, split half Commons / half UBI pool), jubilee
+  stabiliser (gini ≥ 0.72 AND agitation ≥ 0.5 AND 12 consecutive crons over the line), and a
+  dark-age decay catalyst (civLevel < 0.2 → ×1.5, < 0.35 → ×1.25). `REFORM_ENABLED=false` code
+  constant: with the flag off every path is byte-for-byte unchanged. Wired at the mortality
+  ledger (per-cron tax mirror + ops log) and the commons drive (jubilee latch with a DO-storage
+  mirrored over-line counter, resolverGas-style); `/state` gains a `reform` read-out ONLY while
+  armed. Ledger narrative, not on-chain money — the WarCoffer `levyTax` stays a separate,
+  on-chain instrument. 10 table-driven tests; suite 546 green.
+- **E line — exchange module** (`exchange.js` + `exchange.css`, self-contained IIFE): the bourse
+  tape becomes a first-class homepage surface — 240° fever gauge with the 0.8 breakout mark,
+  client-side 60-point volume sparkline, kind-coloured tape event stream, micro stats row, and
+  the meme watchlist as a grouped pro table (heat bars, board-regime badge, rug-risk colouring at
+  the exact indicator thresholds). Honest empty states for every flag/failure path; 60s poll,
+  visibility-paused, 6s abort, theme/i18n via the shared pipeline.
+- **S line — social module** (`social.js` + `social.css`): swarm mood pulse, era-divided chronicle
+  timeline, polities cards and a war banner built on the REAL endpoints (`/state`, `/annals`,
+  `/population`, `/war` — dumped and verified first); domains that are absent stay absent, never
+  a grey placeholder.
+- **Q line**: the pf- proof/attestation strings are now i18n keys (`pf.*`, R3 residual closed);
+  `window.MURMUR_T` bridge exposes the site translator to classic-script modules; C6 — the
+  transparency page now discloses the single-facilitator centralisation point (resolver/committer
+  + relay + gas payer, immutable ⇒ key rotation = contract redeploy); C3 — the stale upstream
+  token address in `PredictionArena.sol`'s comment corrected (comment-only, no bytecode impact).
+- **i18n**: +99 keys × en/zh (exch.* / soc.* / pf.*); fingerprints app v83 / i18n v73 / i18n-ui v76;
+  `styles.css` untouched at v79; new modules pinned at `?v=1`.
+- Zero new env vars (61/64), money flags untouched, suite **546/546 green**, headless-verified on
+  desktop 1280 and mobile 390/320 in both themes with zero page errors.
+
 ### Deployed — Wave-4c: the meme funnel comes out of the drawer (2026-09-27)
 - **R1 promoted**: the meme signal funnel now lives ON the homepage, embedded in the market
   temperature panel it actually feeds (`.panel-temp`), polling on its own 60s timer instead of

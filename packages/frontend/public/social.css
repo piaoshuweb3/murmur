@@ -1,0 +1,314 @@
+/* ==========================================================================
+   murmur · Wave-5 S 线 —— 社交属性可视化独立模块（social.css）
+   ----------------------------------------------------------------------------
+   配套 social.js（window.MurmurSocial）。选择器一律 soc- 前缀，零共享文件改动。
+   主题纪律：只引用既有 token（--paper/--panel/--ink/--ink-rgb/--accent/
+   --accent-rgb/--hair/--muted/--agitate/--explore/--aggregate/--rest/--mono/
+   --display/--pad）；本模块新增变量全部定义在 .soc-panel 作用域（--soc-*），
+   默认亮色，暗色镜像 :root[data-theme="dark"] 与 prefers-color-scheme 两层
+   （与 styles.css 的暗色纪律同构；:root[data-theme="light"] 显式锁亮 = 沿用默认值）。
+   布局纪律：桌面为右列 absolute（非 fixed，相对初始包含块，页面无滚动时视觉
+   等同），落在右上 .panel-pop 之下、右下编年史碑（.chron-btn，bottom:pad）与
+   金丝雀药丸（.canary-btn，bottom:pad+128px）之上 → bottom: pad+172px；
+   ≤680px 或矮视口（≤600px）并入既有面板堆叠流（relative + 居中 + 最大宽，
+   与 .panel-temp 的堆叠降级同款）；面板内 max-height + overflow-y auto；
+   z-index=10 与既有面板同级，不越界；全程零 position:fixed。
+   ========================================================================== */
+
+.soc-panel[hidden] { display: none; }
+
+/* ---- 面板外壳（桌面：右列，锚在金丝雀药丸上方） ---- */
+.soc-panel {
+  position: absolute; z-index: 10;
+  right: var(--pad); bottom: calc(var(--pad) + 172px);   /* 让出编年史碑(≈112px) + 金丝雀药丸(128+30px) */
+  width: clamp(250px, 26vw, 330px);
+  max-height: min(56vh, 560px);
+  overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin;
+  background: var(--panel);
+  border: 1px solid var(--hair);
+  border-radius: 2px;
+  padding: 14px 16px;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.4) inset, 0 8px 30px rgba(var(--ink-rgb), 0.05);
+  color: var(--ink);
+  font-family: var(--mono);
+  -webkit-font-smoothing: antialiased;
+  transition: background 1.6s linear, border-color 1.6s linear;
+
+  /* --- 模块内新增变量（亮色默认）：五个规格类别着色 + 战旗/徽标底色 --- */
+  --soc-war: #a63d2f;            /* 战争 · 红（剑） */
+  --soc-religion: #b8862f;       /* 宗教 · 琥珀（flame） */
+  --soc-poetry: #8d6aa8;         /* 诗歌 · 紫（quill） */
+  --soc-invention: #5b7c8d;      /* 发明 · 蓝（gear，借用既有 aggregate 蓝灰） */
+  --soc-territory: #5f7d5f;      /* 领土 · 绿（旗帜） */
+  --soc-era: var(--accent);      /* 纪元/家族/律法 · 铜金（既有 regime accent） */
+  --soc-neutral: var(--muted);   /* 市况/群像 · 中性 */
+  --soc-warn-bg: rgba(166, 61, 47, 0.08);
+  --soc-warn-line: rgba(166, 61, 47, 0.42);
+  --soc-badge-bg: rgba(var(--accent-rgb), 0.1);
+}
+
+/* ---- 暗色镜像两层（与 styles.css 的暗色纪律同构：OS 偏好 + 显式覆盖） ---- */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .soc-panel {
+    --soc-war: #c9755f; --soc-religion: #cfa64e; --soc-poetry: #a988c2;
+    --soc-invention: #8aa3b2; --soc-territory: #8fae8f;
+    --soc-warn-bg: rgba(201, 117, 95, 0.13);
+    --soc-warn-line: rgba(201, 117, 95, 0.46);
+    --soc-badge-bg: rgba(var(--accent-rgb), 0.16);
+  }
+}
+:root[data-theme="dark"] .soc-panel {
+  --soc-war: #c9755f; --soc-religion: #cfa64e; --soc-poetry: #a988c2;
+  --soc-invention: #8aa3b2; --soc-territory: #8fae8f;
+  --soc-warn-bg: rgba(201, 117, 95, 0.13);
+  --soc-warn-line: rgba(201, 117, 95, 0.46);
+  --soc-badge-bg: rgba(var(--accent-rgb), 0.16);
+}
+
+/* ---- 桌面矮视口防碰撞：与既有 corner-layout 高度修剪同水位 ---- */
+@media (min-width: 681px) and (min-height: 601px) and (max-height: 900px) {
+  .soc-panel { max-height: 40vh; }
+}
+@media (min-width: 681px) and (max-height: 640px) {
+  .soc-panel { display: none; }   /* 右列竖向放不下且堆叠态未触发的极矮窗口：整体让位（诚实隐没） */
+}
+
+/* ---- 头部 ---- */
+.soc-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  margin-bottom: 10px;
+}
+.soc-title {
+  font-family: var(--mono); font-weight: 400;
+  font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--muted); margin: 0;
+}
+.soc-era-tag {
+  font-size: 8.5px; letter-spacing: 0.12em; text-transform: lowercase;
+  color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* ---- 战役横幅（仅进行中战事渲染，无战事零占位） ---- */
+.soc-war {
+  border: 1px solid var(--soc-warn-line);
+  background: var(--soc-warn-bg);
+  border-radius: 2px;
+  padding: 7px 9px;
+  margin-bottom: 10px;
+}
+.soc-war-main {
+  display: flex; align-items: baseline; gap: 7px;
+  font-size: 10.5px; line-height: 1.4; color: var(--ink);
+}
+.soc-war-ic { flex: none; color: var(--soc-war); font-size: 12px; }
+.soc-war-sub {
+  margin-top: 3px;
+  font-size: 8.5px; letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+/* ---- 社会脉搏条（全宽头部） ---- */
+.soc-pulse { margin-bottom: 10px; }
+.soc-pulse-top {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  margin-bottom: 6px;
+}
+.soc-pulse-word {
+  font-family: var(--display); font-weight: 600;
+  font-size: 17px; line-height: 1.1; letter-spacing: 0.02em; text-transform: lowercase;
+  color: var(--accent); transition: color 1.2s linear;
+  font-variation-settings: "opsz" 60;
+}
+.soc-pulse-nums {
+  font-size: 8.5px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--muted); text-align: right;
+}
+.soc-pulse-bar {
+  display: flex; height: 8px;
+  border-radius: 1px; overflow: hidden;
+  background: rgba(var(--ink-rgb), 0.08);
+}
+.soc-seg { display: block; min-width: 0; transition: flex-grow 0.8s ease; }
+.soc-seg.zero { display: none; }                    /* 零计数情绪段退出条带（不画空段） */
+.soc-seg-agitate   { background: var(--agitate); }   /* 复用既有行为态色板（与种群面板同源） */
+.soc-seg-explore   { background: var(--explore); }
+.soc-seg-aggregate { background: var(--aggregate); }
+.soc-seg-rest      { background: var(--rest); }
+/* 只有聚合温度时的诚实退化：单条温度填充 */
+.soc-tempbar {
+  height: 8px; border-radius: 1px; overflow: hidden;
+  background: rgba(var(--ink-rgb), 0.08);
+}
+.soc-tempfill {
+  display: block; height: 100%; width: 0;
+  background: var(--accent);
+  transition: width 0.9s ease;
+}
+.soc-pulse-legend {
+  display: flex; flex-wrap: wrap; gap: 3px 12px;
+  margin-top: 6px;
+  font-size: 8.5px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--muted);
+}
+.soc-lg-item { display: inline-flex; align-items: center; gap: 4px; }
+.soc-lg-item b { font-weight: 500; color: var(--ink); opacity: 0.85; }
+.soc-lg-sw { display: inline-block; width: 7px; height: 7px; border-radius: 1px; }
+.soc-lg-agitate   { background: var(--agitate); }
+.soc-lg-explore   { background: var(--explore); }
+.soc-lg-aggregate { background: var(--aggregate); }
+.soc-lg-rest      { background: var(--rest); }
+.soc-pulse-note {
+  margin: 2px 0 0;
+  font-size: 9.5px; line-height: 1.5; letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+/* ---- 双列主体：左时间线 / 右邦国卡 ---- */
+.soc-body { display: flex; flex-direction: column; }
+.soc-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: 4px 12px;
+  align-items: start;
+}
+.soc-sub {
+  font-family: var(--mono); font-weight: 400;
+  font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--muted); margin: 0 0 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--hair);
+}
+
+/* ---- 社会事件时间线 ---- */
+.soc-tl-list { list-style: none; margin: 0; padding: 0; }
+/* 纪元分隔线：羊皮纸双翼规则线（复刻编年史 era 分组的时代语义） */
+.soc-era-div {
+  display: flex; align-items: center; gap: 7px;
+  margin: 9px 0 5px;
+  font-size: 8px; letter-spacing: 0.16em; text-transform: lowercase;
+  color: var(--accent);
+  white-space: nowrap;
+}
+.soc-era-div::before, .soc-era-div::after {
+  content: ""; flex: 1 1 auto; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(var(--accent-rgb), 0.55));
+}
+.soc-era-div::after { background: linear-gradient(90deg, rgba(var(--accent-rgb), 0.55), transparent); }
+
+.soc-ev {
+  display: flex; gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px dashed var(--hair);
+  cursor: default;
+}
+.soc-tl-list .soc-ev:last-child { border-bottom: 0; }
+.soc-ev:focus { outline: none; }
+.soc-ev:focus-visible { outline: 1px dashed rgba(var(--accent-rgb), 0.7); outline-offset: 2px; }
+.soc-ev-ic {
+  flex: none; width: 15px;
+  text-align: center;
+  font-size: 11.5px; line-height: 1.45;
+  color: var(--soc-neutral);
+}
+/* kind 分类着色：战争红 / 宗教琥珀 / 诗歌紫 / 发明蓝 / 领土绿；纪元·家族·律法铜金；其余中性 */
+.soc-cat-war       .soc-ev-ic { color: var(--soc-war); }
+.soc-cat-religion  .soc-ev-ic { color: var(--soc-religion); }
+.soc-cat-poetry    .soc-ev-ic { color: var(--soc-poetry); }
+.soc-cat-invention .soc-ev-ic { color: var(--soc-invention); }
+.soc-cat-territory .soc-ev-ic { color: var(--soc-territory); }
+.soc-cat-era       .soc-ev-ic,
+.soc-cat-polity    .soc-ev-ic,
+.soc-cat-law       .soc-ev-ic { color: var(--soc-era); }
+/* 重事件（severity 4/5）正文加重一档 */
+.soc-sev-4 .soc-ev-text, .soc-sev-5 .soc-ev-text { font-weight: 500; }
+.soc-ev-main { min-width: 0; }
+.soc-ev-text {
+  font-size: 10px; line-height: 1.5;
+  color: var(--ink); opacity: 0.9;
+  /* 默认两行截断，hover / 键盘聚焦展开全文（规格：hover 展开完整文本） */
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.soc-ev:hover .soc-ev-text, .soc-ev:focus-within .soc-ev-text {
+  display: block; -webkit-line-clamp: unset;
+  opacity: 1;
+}
+.soc-ev-meta {
+  margin-top: 2px;
+  font-size: 8px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.soc-tl-more {
+  margin: 7px 0 0;
+  font-size: 8.5px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--muted); text-align: center;
+}
+
+/* ---- 邦国/城市卡网格 ---- */
+.soc-pol-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 6px;
+}
+.soc-house {
+  --soc-house-c: var(--accent);        /* 卡左缘房色由 JS 按既有 houseColor 派生写入 */
+  border: 1px solid var(--hair);
+  border-left: 2px solid var(--soc-house-c);
+  border-radius: 2px;
+  background: rgba(var(--ink-rgb), 0.03);
+  padding: 5px 7px 6px;
+  min-width: 0;
+}
+.soc-house-top {
+  display: flex; align-items: baseline; gap: 5px;
+  min-width: 0;
+}
+.soc-house-sigil { flex: none; font-size: 11px; color: var(--soc-house-c); }
+.soc-house-name {
+  font-family: var(--display); font-weight: 600;
+  font-size: 11.5px; line-height: 1.25; letter-spacing: 0.01em;
+  color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.soc-house-meta {
+  margin-top: 2px;
+  font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.soc-house-zones {
+  display: inline-block;
+  margin-top: 3px;
+  font-size: 8px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--soc-territory);
+}
+.soc-badge {
+  display: inline-block;
+  margin-top: 4px; padding: 1px 6px 2px;
+  font-size: 7.5px; letter-spacing: 0.14em; text-transform: uppercase;
+  border-radius: 999px;
+  border: 1px solid var(--hair);
+  background: var(--soc-badge-bg);
+  color: var(--muted);
+}
+.soc-badge.is-expanded { color: var(--soc-territory); border-color: currentColor; background: transparent; }
+.soc-badge.is-annexed  { color: var(--soc-war); border-color: currentColor; background: transparent; }
+.soc-badge.is-founded  { color: var(--soc-era); border-color: currentColor; background: transparent; }
+
+/* ---- ≤680px 或矮视口：并入既有面板堆叠流（与 .panel-temp 同款降级），单列堆叠 ---- */
+@media (max-width: 680px), (max-height: 600px) {
+  .soc-panel {
+    position: relative; left: auto; right: auto; top: auto; bottom: auto;
+    width: auto; max-width: min(92vw, 460px);
+    max-height: 52vh;
+    margin: 0 auto 12px;
+  }
+  .soc-cols { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .soc-pol-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+}
+
+/* ---- 动效克制：跟随系统的 reduced-motion 纪律 ---- */
+@media (prefers-reduced-motion: reduce) {
+  .soc-seg, .soc-tempfill { transition: none; }
+}

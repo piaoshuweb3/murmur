@@ -223,6 +223,14 @@
           is never displayed, never transmitted, and never leaves the machine that derives the agent wallets.
           <span class="zh"><b>facilitator 助记词永不触网。</b>它仅存于服务端环境变量之中，从不显示、从不传输、永不离开派生代理钱包的那台机器。</span>
         </p>
+        <p>
+          <b>Centralisation disclosure (C6, Wave-5).</b> A single facilitator EOA currently acts as resolver and
+          committer for all five contracts, plus payment relay and gas payer — its native balance is watched by a
+          per-cron read-only gas watchdog (<span class="mono">/state.resolverGas</span>, amber banner at low water).
+          Because the resolver is baked into the contracts as immutable, rotating that key means redeploying the
+          contract set. Funding flows to <span class="mono">0x20c5…53f3</span> keep the arena opening and settling.
+          <span class="zh"><b>中心化单点披露（C6，Wave-5）。</b>当前由单一 facilitator EOA 同时担任五份合约的 resolver 与 committer，并兼任支付中继与 gas 付款人——其原生余额由每 cron 一次的只读 gas 看门狗监控（<span class="mono">/state.resolverGas</span>，低水位时页面顶部琥珀横幅）。由于 resolver 以 immutable 形式烧入合约，更换该密钥意味着重新部署整套合约。向 <span class="mono">0x20c5…53f3</span> 的注资维持 Arena 开轮与结算。</span>
+        </p>
       </div>
     </section>
 

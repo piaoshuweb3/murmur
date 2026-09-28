@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-/// @notice Minimal ERC-20 surface the arena needs. MURMUR (0x8faa…4a5d on Arc) is a standard 18-dec
+/// @notice Minimal ERC-20 surface the arena needs. MURMUR (0x43D84EfE7174637cdA55Ae1560cd4BFf4BaAB490 on Arc —
+///         C3: comment corrected from the upstream 0x8faa…4a5d; comment-only change, no bytecode impact) is a
+///         standard 18-dec
 ///         token; we call it through low-level `_safe*` wrappers below so a non-standard return value
 ///         (USDT-style) can never wedge a bet or a payout.
 interface IERC20Minimal {

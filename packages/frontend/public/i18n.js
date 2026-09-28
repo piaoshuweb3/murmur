@@ -12,7 +12,7 @@
 //   ct(kind, tokens, lang), applyDom(root), gl(glossGroup, word)
 // ============================================================================
 
-import { en, zh, fr, es, ja, ko, ar } from "./i18n-ui.js?v=75";
+import { en, zh, fr, es, ja, ko, ar } from "./i18n-ui.js?v=76";
 import { CHRON_TPL } from "./i18n-chron.js?v=58";
 
 export const SUPPORTED = ["en", "zh", "fr", "es", "ja", "ko", "ar"];
@@ -100,6 +100,11 @@ export function t(key, params) {
   if (params) s = s.replace(/\{(\w+)(?:~(\w+))?\}/g, (_m, k, fmt) => fillToken(k, fmt, params[k]));
   return s;
 }
+
+// Wave-5 bridge: self-contained modules (exchange.js / social.js) are classic scripts — they
+// cannot import this ESM translator, so expose it globally. Missing keys return the key itself,
+// which is exactly the signal those modules use to fall back to their embedded dictionaries.
+try { window.MURMUR_T = t; } catch { /* non-browser environment */ }
 
 /** Translate one glossary word (for labels built outside t()). Falls back to the word. */
 export function gl(group, word) {
