@@ -5,6 +5,7 @@ import { FlyStateDO } from "./state.js";
 import { OPENAPI_SPEC } from "./openapi.js";
 import { handleCommunity } from "./community.js";
 import { handleHistoryDirect } from "./history.js";
+import { edgeCache } from "./edgecache.js";
 
 // 冻结治理（P0）：scheduled→DO /tick 自调用的壁钟上限（远小于 Workers cron 的 900s 墙）。
 const CRON_SELF_TIMEOUT_MS = 600_000;
@@ -164,11 +165,16 @@ export default {
       });
     }
 
-    // Forward every other request to the DO (with the /v1 prefix already stripped)
-    const stub = getDO(env);
-    const doUrl = new URL(request.url);
-    doUrl.pathname = path;
-    const resp = await stub.fetch(new Request(doUrl.toString(), request));
+    // Forward every other request to the DO (with the /v1 prefix already stripped) — through
+    // the Wave-6b edge cache: hot GET reads fan in per-isolate (N tabs used to mean N× DO
+    // volume — the 2026-09-28 free-tier quota incident), 5xx / transport failures replay the
+    // stale copy while it is young enough, and a DO throw is an honest 503 JSON, never a 1101.
+    const resp = await edgeCache.wrap(request, path, () => {
+      const stub = getDO(env);
+      const doUrl = new URL(request.url);
+      doUrl.pathname = path;
+      return stub.fetch(new Request(doUrl.toString(), request));
+    });
 
     // Re-apply CORS headers (the DO already adds them once; keep it idempotent here)
     const headers = new Headers(resp.headers);

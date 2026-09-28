@@ -9,8 +9,9 @@
   <meta name="description" content="murmur is a living population of fruit-fly nervous systems adrift on arc. it reads whole-chain activity, reduces it to a temperature, and the swarm reacts. each fly is an autonomous agent whose 10,800-neuron connectome decides what to buy and from whom, settling with its peers in real USDC on Arc mainnet over x402 — every payment a verifiable on-chain transaction. no LLM, just neurons paying each other for real." />
 
   <link rel="stylesheet" href="./styles.css?v=79" />
-  <link rel="stylesheet" href="./exchange.css?v=1" />
-  <link rel="stylesheet" href="./social.css?v=1" />
+  <link rel="stylesheet" href="./exchange.css?v=2" />
+  <link rel="stylesheet" href="./social.css?v=2" />
+  <link rel="stylesheet" href="./wave6.css?v=1" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><g fill='%231a1a18'><circle cx='12' cy='14' r='3.1'/><circle cx='20.5' cy='11.5' r='2.3'/><circle cx='17.5' cy='21' r='1.9'/></g></svg>" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -66,6 +67,16 @@
       <a class="api-link" href="/developers" data-i18n="top.api" data-i18n-title="top.apiTitle" title="the murmur public API — docs for developers">api</a>
       <a class="api-link" href="/community" data-i18n="top.community" data-i18n-title="top.communityTitle" title="the murmur community — token-gated governance for MURMUR holders">community</a>
       <a class="api-link" href="/transparency.html" data-i18n="top.transparency" data-i18n-title="top.transparencyTitle" title="every address, contract and verification path — the whole project in the open">transparency</a>
+      <!-- R3 (Wave-6): the deploy manifest chip — reads /deploy.json (content hash of the served
+           bundle, written by scripts/gen-manifest.mjs at build time) and pins “which code am I
+           looking at” next to the chain status, upstream-connectome style. Fail-soft: stays
+           hidden when the fetch fails or the payload lacks a manifest. -->
+      <a class="manifest-chip" id="manifest-chip" href="/transparency.html" hidden data-i18n-title="manifest.title"></a>
+      <!-- R3 (Wave-6): the deploy manifest chip — reads /deploy.json (content hash of the served
+           bundle, written by scripts/gen-manifest.mjs at build time) and pins “which code am I
+           looking at” next to the chain status, upstream-connectome style. Fail-soft: stays
+           hidden when the fetch fails or the payload lacks a manifest. -->
+      <a class="manifest-chip" id="manifest-chip" href="/transparency.html" hidden data-i18n-title="manifest.title"></a>
       <!-- R5 (Wave-3): the theme toggle. Light stays the default; dark mirrors the tokens and keeps the
            temperature-driven live palette working (the writeback swaps to its dark interval). -->
       <button type="button" id="theme-btn" class="theme-btn" aria-label="toggle dark theme" data-i18n-title="theme.toggleTitle" title="switch light / dark">☾</button>
@@ -91,8 +102,39 @@
 
   <!-- R6 (Wave-4c): the nav sheet — a small parchment menu pinned under the topbar that receives
        the topbar's overflow links on phones. Filled by JS with real DOM moves (events travel with
-       the nodes); on desktop it stays hidden forever. -->
-  <nav id="nav-sheet" class="nav-sheet" aria-label="more links" hidden></nav>
+       the nodes); on desktop it stays hidden forever.
+       R2 (Wave-6): the sheet now opens with a 2×4 jump grid (ns-grid) — the same eight
+       destinations the desktop rail (R1) carries, so all three breakpoints share one catalogue. -->
+  <nav id="nav-sheet" class="nav-sheet" aria-label="more links" hidden>
+    <div class="ns-grid" role="group">
+      <button type="button" class="ns-rail-btn" data-rail="econ" data-i18n="rail.econ" data-i18n-aria="rail.econ" aria-label="agent economy" title="agent economy"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.2"/></svg><span data-i18n="rail.econ">agent economy</span></button>
+      <button type="button" class="ns-rail-btn" data-rail="exch" data-i18n="rail.exch" data-i18n-aria="rail.exch" aria-label="the bourse" title="the bourse"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14a8 8 0 0 1 16 0"/><path d="M12 14l4-5"/></svg><span data-i18n="rail.exch">the bourse</span></button>
+      <button type="button" class="ns-rail-btn" data-rail="soc" data-i18n="rail.soc" data-i18n-aria="rail.soc" aria-label="social pulse" title="social pulse"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="9" r="2.4"/><circle cx="16" cy="9" r="2.4"/><circle cx="12" cy="15.5" r="2.4"/></svg><span data-i18n="rail.soc">social pulse</span></button>
+      <button type="button" class="ns-rail-btn" data-rail="funnel" data-i18n="rail.funnel" data-i18n-aria="rail.funnel" aria-label="meme funnel" title="meme funnel"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16l-6.2 7.2V18l-3.6 2v-7.8Z"/></svg><span data-i18n="rail.funnel">meme funnel</span></button>
+      <button type="button" class="ns-rail-btn" data-rail="chron" data-i18n="rail.chron" data-i18n-aria="rail.chron" aria-label="the chronicle" title="the chronicle"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12v16H6z"/><path d="M9 8h6M9 12h6"/></svg><span data-i18n="rail.chron">the chronicle</span></button>
+      <button type="button" class="ns-rail-btn" data-rail="canary" data-i18n="rail.canary" data-i18n-aria="rail.canary" aria-label="x402 telemetry" title="x402 telemetry"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13c3-6 8-7 11-4 2-1 3-2 5-3-.6 3-2 5-4 6l1 5h-3l-1-3c-4 1-7-1-9-1z"/><circle cx="16.2" cy="7.6" r="0.6"/></svg><span data-i18n="rail.canary">x402 telemetry</span></button>
+      <button type="button" class="ns-rail-btn" data-rail="territory" data-i18n="rail.territory" data-i18n-aria="rail.territory" aria-label="territory layer" title="territory layer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 20V4"/><path d="M6 5h11l-2.4 3.5L17 12H6"/></svg><span data-i18n="rail.territory">territory layer</span></button>
+      <button type="button" class="ns-rail-btn" data-rail="graves" data-i18n="rail.graves" data-i18n-aria="rail.graves" aria-label="graveyard layer" title="graveyard layer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 20v-9a5 5 0 0 1 10 0v9"/><path d="M5 20h14"/><path d="M12 9v5M10 11h4"/></svg><span data-i18n="rail.graves">graveyard layer</span></button>
+    </div>
+  </nav>
+
+  <!-- R1 (Wave-6): the desktop rail — a constant left-edge catalogue of the eight destinations
+       that used to live only inside cards / corners (upstream rail grammar, our content).
+       Pure chrome: every button re-uses an existing behaviour (scroll+flash, drawer, layer
+       toggle); zero new data paths, zero money paths. CSS reveals it at ≥1280px only —
+       below that the layout is untouched and phones keep the nav sheet. -->
+  <nav class="rail" id="rail" aria-label="primary">
+    <button type="button" class="rail-btn" data-rail="econ" data-i18n-aria="rail.econ" aria-label="agent economy" data-i18n-title="rail.econ" title="agent economy"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.2"/></svg><span class="rail-tip" data-i18n="rail.econ">agent economy</span></button>
+    <button type="button" class="rail-btn" data-rail="exch" data-i18n-aria="rail.exch" aria-label="the bourse" data-i18n-title="rail.exch" title="the bourse"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14a8 8 0 0 1 16 0"/><path d="M12 14l4-5"/></svg><span class="rail-tip" data-i18n="rail.exch">the bourse</span></button>
+    <button type="button" class="rail-btn" data-rail="soc" data-i18n-aria="rail.soc" aria-label="social pulse" data-i18n-title="rail.soc" title="social pulse"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="9" r="2.4"/><circle cx="16" cy="9" r="2.4"/><circle cx="12" cy="15.5" r="2.4"/></svg><span class="rail-tip" data-i18n="rail.soc">social pulse</span></button>
+    <button type="button" class="rail-btn" data-rail="funnel" data-i18n-aria="rail.funnel" aria-label="meme funnel" data-i18n-title="rail.funnel" title="meme funnel"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16l-6.2 7.2V18l-3.6 2v-7.8Z"/></svg><span class="rail-tip" data-i18n="rail.funnel">meme funnel</span></button>
+    <span class="rail-sep" aria-hidden="true"></span>
+    <button type="button" class="rail-btn" data-rail="chron" data-i18n-aria="rail.chron" aria-label="the chronicle" data-i18n-title="rail.chron" title="the chronicle"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12v16H6z"/><path d="M9 8h6M9 12h6"/></svg><span class="rail-tip" data-i18n="rail.chron">the chronicle</span></button>
+    <button type="button" class="rail-btn" data-rail="canary" data-i18n-aria="rail.canary" aria-label="x402 telemetry" data-i18n-title="rail.canary" title="x402 telemetry"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13c3-6 8-7 11-4 2-1 3-2 5-3-.6 3-2 5-4 6l1 5h-3l-1-3c-4 1-7-1-9-1z"/><circle cx="16.2" cy="7.6" r="0.6"/></svg><span class="rail-tip" data-i18n="rail.canary">x402 telemetry</span></button>
+    <span class="rail-sep" aria-hidden="true"></span>
+    <button type="button" class="rail-btn" data-rail="territory" data-i18n-aria="rail.territory" aria-label="territory layer" data-i18n-title="rail.territory" title="territory layer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 20V4"/><path d="M6 5h11l-2.4 3.5L17 12H6"/></svg><span class="rail-tip" data-i18n="rail.territory">territory layer</span></button>
+    <button type="button" class="rail-btn" data-rail="graves" data-i18n-aria="rail.graves" aria-label="graveyard layer" data-i18n-title="rail.graves" title="graveyard layer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 20v-9a5 5 0 0 1 10 0v9"/><path d="M5 20h14"/><path d="M12 9v5M10 11h4"/></svg><span class="rail-tip" data-i18n="rail.graves">graveyard layer</span></button>
+  </nav>
 
   <!-- ============ agent economy (top-left): the x402 swarm ledger ============ -->
   <section class="panel panel-econ">
@@ -596,7 +638,7 @@
     </div>
   </aside>
 
-  <script src="./app.js?v=83" type="module"></script>
+  <script src="./app.js?v=84" type="module"></script>
   <script src="./exchange.js?v=1" defer></script>
   <script src="./social.js?v=1" defer></script>
 </body>

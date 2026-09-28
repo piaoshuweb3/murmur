@@ -16,6 +16,36 @@ All notable changes to **murmur** are documented in this file. The format is bas
 
 ## [Unreleased] — P0/P1 sync (2026-09-24)
 
+### Deployed — Wave-6: the constant catalogue — a left rail, a shared jump grid, and a manifest you can check (2026-09-28)
+- **R1 — the desktop rail (≥1280px)**: a constant left-edge catalogue of the eight destinations that
+  used to live only inside cards and corners (agent economy · the bourse · social pulse · meme funnel ·
+  the chronicle · x402 telemetry · territory layer · graveyard layer). Upstream rail grammar, our
+  content — every button re-uses an existing behaviour (scroll+flash for the four panels, the codex
+  drawer, the canary hop, the canonical layer-chip click): zero duplicated state, zero new data paths,
+  zero money paths. Hover tips carry the same i18n keys; the destination pulses once on arrival
+  (`prefers-reduced-motion` honoured). Below 1280px the layout is byte-identical to Wave-5.
+- **R2 — the nav sheet jump grid (≤680px)**: the same eight destinations as a 2×4 grid that opens the
+  mobile sheet — one catalogue across all three breakpoints; tapping scrolls the panel into view and
+  pulses it. Upstream hides its rail on phones; ours keeps the directory.
+- **R3 — the deploy manifest chip**: `scripts/gen-manifest.mjs` hashes everything under `public/`
+  (25 files, deploy.json excluded) into `deploy.json`; the topbar pins `manifest {hash}` linking to the
+  transparency page — "which code am I looking at" answered on sight, upstream-connectome style.
+  Fail-soft: fetch miss → the chip simply never shows.
+- **R5 — five-language completion**: the exchange (`exch.*` 45) and social (`soc.*` 33) surfaces were
+  en/zh-only since Wave-5; fr/es/ja/ko/ar now carry all 78 keys, and the rail/manifest chrome ships
+  in all seven languages. No more silent English islands for non-en/zh readers.
+- **R4 (deferred)**: Land Leaders needs a parcels data source this fork doesn't have (our lineage
+  contract indexes breeding families, not map parcels) — deferred to Wave-7 rather than fabricated.
+- Fingerprints: app v84 / i18n v74 / i18n-ui v77 / exchange+social css v2 / wave6.css v1 (new);
+  styles.css untouched at v79, exchange.js/social.js untouched at v1. Zero new env vars, money flags untouched.
+- **Hotfix same day — the DO quota shield (`edgecache.ts`)**: production tripped the Durable Objects
+  free-tier daily request ceiling ("error 1101: Exceeded allowed volume of requests") — every endpoint
+  except /health /openapi /community /history forwards to the singleton DO, and N open tabs each
+  polling /state+ /population meant N× volume. The in-isolate TTL cache collapses that fan-out
+  (fresh-hit / stale-on-5xx-or-throw / honest 503 JSON never a raw 1101; GET-only, `?nocache=1`
+  escape hatch, 4xx pass untouched). 12 table-driven tests; suite 558 green. Worker-only + deploy.json:
+  no frontend behaviour change, no new vars, money flags untouched.
+
 ### Deployed — Wave-5: the third feature extension — exchange & social surfaces, the REFORM ledger, and the C-line sweep (2026-09-28)
 - **B8 REFORM v1.7 (pure ledger, default OFF)**: new `reform.ts` — progressive estate tax
   (5 USDC threshold, 10/25/40% bracket ladder, split half Commons / half UBI pool), jubilee

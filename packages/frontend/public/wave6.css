@@ -1,0 +1,121 @@
+/* ==========================================================================
+   murmur · Wave-6 —— 左侧导航栏（R1）+ 移动导航单跳转格（R2）+ 部署清单指纹片（R3）
+   ----------------------------------------------------------------------------
+   纪律（延续 Task 49-exc 模块纪律）：
+   · 颜色/字体只用 styles.css 既有变量（--panel/--hair/--ink/--muted/--accent-rgb/
+     --ink-rgb/--mono/--pad/--ann-h），暗色主题经变量自动生效，零硬编码色值；
+   · 本文件属共享 chrome 层：只新增 .rail*/.ns-*/*.manifest-chip 规则；对既有共享类
+     （.panel-econ/.panel-temp/.panel-pop）仅在 ≥1280px 的 rail 激活档做几何让位——
+     模块自有类（.exch-panel/.soc-panel）的让位写回各自模块文件（exchange/social.css）；
+   · 桌面 absolute（页面无滚动，视觉等同 fixed）；≤1279px 本文件除 ns-grid/manifest-chip
+     外全部休眠——低于该断点布局与 Wave-5 字节级等同；
+   · z-index=11：面板层(10) 之上、抽屉(12) 之下，不越界。
+   ========================================================================== */
+
+:root { --rail-w: 0px; }                      /* rail 几何让位变量：默认 0 = 无让位 */
+
+/* ---------- R1：桌面左栏（≥1280px 才存在） ---------- */
+.rail {
+  display: none;
+}
+@media (min-width: 1280px) {
+  :root { --rail-w: 58px; }
+  .rail {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    position: absolute; z-index: 11;
+    left: calc(var(--pad) * 0.25);
+    top: calc(var(--pad) + 46px);
+    width: 44px; padding: 8px 0;
+    background: var(--panel);
+    border: 1px solid var(--hair); border-radius: 2px;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.4) inset, 0 8px 30px rgba(var(--ink-rgb), 0.05);
+    max-height: calc(100vh - var(--pad) - 220px);
+    overflow-y: auto; scrollbar-width: none;
+  }
+  body.ann-open .rail { top: calc(var(--pad) + 46px + var(--ann-h, 0px)); }
+}
+
+.rail-btn {
+  position: relative;
+  width: 30px; height: 30px; flex: 0 0 auto;
+  display: grid; place-items: center;
+  border: 1px solid transparent; border-radius: 2px;
+  background: none; cursor: pointer;
+  color: var(--muted); padding: 0;
+  transition: color 0.25s, border-color 0.25s, background 0.25s;
+}
+.rail-btn svg {
+  width: 17px; height: 17px;
+  fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round;
+}
+.rail-btn:hover, .rail-btn:focus-visible {
+  color: var(--ink);
+  border-color: var(--hair);
+  background: rgba(var(--ink-rgb), 0.05);
+  outline: none;
+}
+/* 悬停浮标：向右展开文字标签（上游是纯 tooltip；我们多给一层常色底，可读性更好） */
+.rail-tip {
+  position: absolute; left: calc(100% + 10px); top: 50%; transform: translateY(-50%);
+  white-space: nowrap;
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.06em;
+  color: var(--ink);
+  background: var(--panel); border: 1px solid var(--hair); border-radius: 2px;
+  padding: 3px 8px;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.2s;
+  z-index: 2;
+}
+.rail-btn:hover .rail-tip, .rail-btn:focus-visible .rail-tip { opacity: 1; }
+
+.rail-sep { width: 20px; height: 1px; flex: 0 0 auto; background: var(--hair); }
+
+/* 点击后的寻的脉冲：告诉读者"去看这块卡片"（reduced-motion 直接熄灭） */
+@keyframes railPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0.55); }
+  100% { box-shadow: 0 0 0 14px rgba(var(--accent-rgb), 0); }
+}
+.rail-flash { animation: railPulse 0.9s ease-out 2; }
+@media (prefers-reduced-motion: reduce) { .rail-flash { animation: none; } }
+
+/* ---------- rail 激活档（≥1280px）的三列让位：左列右移收窄、右列微收窄 ---------- */
+@media (min-width: 1280px) {
+  .panel-econ, .panel-temp { left: calc(var(--pad) + var(--rail-w)); width: clamp(250px, 25vw, 320px); }
+  .panel-pop { width: clamp(232px, 24vw, 280px); }
+}
+
+/* ---------- R2：移动导航单内的 2×4 跳转格（与桌面 rail 同一目录） ---------- */
+.nav-sheet .ns-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px;
+  padding: 10px 10px 12px;
+  border-bottom: 1px solid var(--hair);
+  margin-bottom: 8px;
+}
+.ns-rail-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  padding: 9px 4px 7px;
+  border: 1px solid var(--hair); border-radius: 2px;
+  background: none; cursor: pointer;
+  color: var(--muted);
+  font-family: var(--mono); font-size: 8.5px; letter-spacing: 0.03em;
+  line-height: 1.3; text-align: center;
+  transition: color 0.25s, background 0.25s;
+}
+.ns-rail-btn svg {
+  width: 17px; height: 17px;
+  fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round;
+}
+.ns-rail-btn:hover, .ns-rail-btn:focus-visible { color: var(--ink); background: rgba(var(--ink-rgb), 0.05); outline: none; }
+.ns-rail-btn span { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- R3：部署清单指纹片（fetch 成功才显示，fail-soft 保持隐藏） ---------- */
+.manifest-chip {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.05em;
+  color: var(--muted);
+  border: 1px solid var(--hair); border-radius: 2px;
+  padding: 2px 7px;
+  white-space: nowrap;
+  transition: color 0.25s, border-color 0.25s;
+}
+.manifest-chip:hover, .manifest-chip:focus-visible { color: var(--ink); border-color: var(--accent); outline: none; }
+.manifest-chip[hidden] { display: none; }

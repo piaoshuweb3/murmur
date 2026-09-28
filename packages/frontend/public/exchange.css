@@ -312,3 +312,13 @@
 /* ---------- RTL（ar 等右到左语言激活时镜像内边距方向，走既有 html[dir] 机制） ---------- */
 html[dir="rtl"] .exch-head { direction: rtl; }
 html[dir="rtl"] .exch-body { direction: rtl; }
+
+/* ---------- Wave-6 R1: rail 激活档（≥1280px）—— 让开左侧导航栏（rail.css 定义 --rail-w） ----------
+   桌面中央面板右移 +34px 并收窄到 43vw：与右移后的左列（econ/temp）和右列（pop/soc）都保持净空。
+   1280px 实测：左列右缘 ≈ 406px · 本面板 ≈ 439..909px · 右列左缘 ≈ 952px，双侧留白 ≥ 13px。 */
+@media (min-width: 1280px) {
+  .exch-panel {
+    left: calc(50% + 34px);
+    width: clamp(300px, calc(43vw - 2 * var(--pad) - 24px), 500px);
+  }
+}

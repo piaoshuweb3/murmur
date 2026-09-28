@@ -33,7 +33,7 @@
 // i18n kernel — pure read-out localisation layer (never touches sim/economy/proof).
 // NOTE: `t` is used all over this file as a local (time/totals/lerp), so we import the
 // translator under the alias `T` to avoid any shadowing. ct() = chronicle display, gl() = glossary.
-import { t as T, ct, gl, currentLang, getLang, setLang, applyDom, SUPPORTED, ENDONYMS } from "./i18n.js?v=73";
+import { t as T, ct, gl, currentLang, getLang, setLang, applyDom, SUPPORTED, ENDONYMS } from "./i18n.js?v=74";
 
 const params = new URLSearchParams(location.search);
 const API =
@@ -7496,7 +7496,7 @@ function buildMobileNav() {
   // that grows past the viewport whole (html{overflow-x:hidden} then clips it), so its own
   // scrollWidth never exceeds its clientWidth. The fixed topbar is viewport-sized, so its
   // scrollWidth honestly reports the protruding children.
-  const cands = [...meta.querySelectorAll("a.api-link, a.gh-link, a.x-link, a.netting-chip")]
+  const cands = [...meta.querySelectorAll("a.api-link, a.gh-link, a.x-link, a.netting-chip, a.manifest-chip")]
     .filter((el) => !el.hidden);
   let i = 0;
   while (bar.scrollWidth > bar.clientWidth + 8 && i < cands.length) {
@@ -7512,6 +7512,74 @@ function toggleNavSheet(force) {
   const open = typeof force === "boolean" ? force : sheet.hidden;
   sheet.hidden = !open;
   more.setAttribute("aria-expanded", String(open));
+}
+
+// ================= Wave-6 R1/R2: the rail catalogue (desktop rail + mobile sheet grid) =================
+// One grammar, three breakpoints: ≥1280px shows the fixed left rail, ≤680px carries the same
+// eight destinations in the nav sheet's jump grid. Every button re-uses an EXISTING behaviour —
+// scroll+flash for the four panel cards, toggleChron() for the codex, the canary chip's own
+// /canary hop, and the canonical .layer-btn click for the two canvas layers (zero duplicated
+// state, zero new data paths). The flash pulse (wave6.css .rail-flash) marks the destination.
+function railFlash(el) {
+  if (!el) return;
+  el.classList.remove("rail-flash");
+  void el.offsetWidth;                       // restart the animation
+  el.classList.add("rail-flash");
+  setTimeout(() => el.classList.remove("rail-flash"), 2000);
+}
+function railAct(name) {
+  const mobile = window.matchMedia("(max-width: 680px)").matches;
+  const seek = (el) => {
+    if (!el) return;
+    railFlash(el);
+    if (mobile && typeof el.scrollIntoView === "function") el.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+  if (name === "econ") seek(document.querySelector(".panel-econ"));
+  else if (name === "exch") seek($("exchange-panel"));
+  else if (name === "soc") seek($("soc-panel"));
+  else if (name === "funnel") seek(document.querySelector(".panel-temp"));
+  else if (name === "chron") { toggleChron(); }
+  else if (name === "canary") { window.location.href = "/canary"; }
+  else if (name === "territory" || name === "graves") {
+    // delegate to the canonical layer chip — one handler, one state source (showTerritory/showGraves)
+    const chip = document.querySelector(`.layer-btn[data-layer="${name}"]`);
+    if (!chip) return;
+    if (!chip.classList.contains("is-on")) chip.click();
+    railFlash(chip);
+  }
+}
+function initRail() {
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-rail]");
+    if (!b) return;
+    railAct(b.dataset.rail);
+  });
+}
+
+// ================= Wave-6 R3: the deploy manifest chip =================
+// /deploy.json is written by scripts/gen-manifest.mjs (content hash of the served bundle).
+// Fail-soft: network miss / missing field → the chip simply never shows. The text is set
+// imperatively (no data-i18n attr) so applyDom can't clobber the {m} parameter; a language
+// switch re-renders it from the cached payload below.
+let manifestData = null;
+function renderManifestChip() {
+  const chip = $("manifest-chip");
+  if (!chip || !manifestData || !manifestData.manifest) return;
+  chip.textContent = T("manifest.chip", { m: String(manifestData.manifest).slice(0, 8) });
+  chip.title = T("manifest.title");
+  chip.hidden = false;
+}
+async function initManifestChip() {
+  try {
+    const r = await fetch("/deploy.json", { cache: "no-store" });
+    if (!r.ok) return;
+    const d = await r.json();
+    if (!d || !d.manifest) return;
+    manifestData = d;
+    renderManifestChip();
+    const lsel = $("lang-select");
+    if (lsel) lsel.addEventListener("change", () => setTimeout(renderManifestChip, 0));
+  } catch { /* offline / dev — the chip stays hidden, honest */ }
 }
 
 // ================= boot =================
@@ -7546,6 +7614,8 @@ function boot() {
   pollPoem();                                 // 45s: the laureate's odes (same optional gating)
   setInterval(pollPoem, CHRON_POLL_MS);
   buildMobileNav();                           // R6: consolidate the topbar if this viewport overflows it
+  initRail();                                 // Wave-6 R1/R2: the left rail + the sheet jump grid (pure chrome)
+  initManifestChip();                         // Wave-6 R3: the deploy manifest chip (fail-soft)
   window.addEventListener("resize", () => { clearTimeout(navResizeT); navResizeT = setTimeout(buildMobileNav, 160); });
   {                                           // R6: sheet open/close + outside-tap / Esc dismissal
     const navMoreBtn = $("nav-more");

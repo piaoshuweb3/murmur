@@ -312,3 +312,8 @@
 @media (prefers-reduced-motion: reduce) {
   .soc-seg, .soc-tempfill { transition: none; }
 }
+
+/* ---------- Wave-6 R1: rail 激活档（≥1280px）—— 右列微收窄，给中央面板让出净空 ---------- */
+@media (min-width: 1280px) {
+  .soc-panel { width: clamp(250px, 24vw, 300px); }
+}
