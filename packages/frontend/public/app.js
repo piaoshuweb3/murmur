@@ -7490,7 +7490,12 @@ function buildMobileNav() {
     meta.insertBefore(el, ref);
   }
   more.hidden = true; sheet.hidden = true; more.setAttribute("aria-expanded", "false");
-  if (!window.matchMedia("(max-width: 680px)").matches) return;    // desktop: zero change, ever
+  // ≥1280px: the left rail IS the catalogue — the desktop topbar stays byte-for-byte what it was.
+  if (window.matchMedia("(min-width: 1280px)").matches) return;
+  // 681–1279px: the rail is hidden in this band, so the ⋯ sheet (with its 8-destination jump
+  // grid) is the ONLY catalogue — Wave-6.1 keeps ⋯ visible here even when the topbar does not
+  // overflow (this band previously had no navigation affordance at all).
+  if (!window.matchMedia("(max-width: 680px)").matches) { more.hidden = false; return; }
   more.hidden = false;                            // the button itself takes width — measure with it shown
   // Overflow is measured on the TOPBAR, not .topmeta: the meta strip is an auto-width flex child
   // that grows past the viewport whole (html{overflow-x:hidden} then clips it), so its own
@@ -7528,11 +7533,16 @@ function railFlash(el) {
   setTimeout(() => el.classList.remove("rail-flash"), 2000);
 }
 function railAct(name) {
-  const mobile = window.matchMedia("(max-width: 680px)").matches;
+  // scrollable layouts = phones (≤680px) AND short viewports (≤600px height — styles.css stacks
+  // the corner panels into one scrollable column there too). Wave-6.1: the old mobile-width-only
+  // guard meant a short-desktop pick flashed an off-screen panel — perceived as "nothing happened".
+  const scrollable = window.matchMedia("(max-width: 680px), (max-height: 600px)").matches;
   const seek = (el) => {
     if (!el) return;
     railFlash(el);
-    if (mobile && typeof el.scrollIntoView === "function") el.scrollIntoView({ behavior: "smooth", block: "center" });
+    // scroll on EVERY breakpoint: a harmless no-op where the layout is fixed (tall ≥681px
+    // viewports), but the actual jump wherever the document scrolls.
+    if (typeof el.scrollIntoView === "function") el.scrollIntoView({ behavior: "smooth", block: "center" });
   };
   if (name === "econ") seek(document.querySelector(".panel-econ"));
   else if (name === "exch") seek($("exchange-panel"));
@@ -7546,6 +7556,10 @@ function railAct(name) {
     if (!chip) return;
     if (!chip.classList.contains("is-on")) chip.click();
     railFlash(chip);
+    // the canvas is the fixed backdrop behind the panels: on scrollable layouts the pick may
+    // happen deep in the panel column — return to the top so the requested layer is actually
+    // in front of the user (no-op on fixed desktop layouts, where the canvas is always visible).
+    if (scrollable) window.scrollTo({ top: 0, behavior: "smooth" });
   }
 }
 function initRail() {
@@ -7553,6 +7567,9 @@ function initRail() {
     const b = e.target.closest("[data-rail]");
     if (!b) return;
     railAct(b.dataset.rail);
+    // a sheet-grid pick dismisses the sheet (standard dropdown grammar) — the old keep-open
+    // behaviour left the grid covering the very destination the user had just jumped to.
+    if (b.classList.contains("ns-rail-btn")) toggleNavSheet(false);
   });
 }
 

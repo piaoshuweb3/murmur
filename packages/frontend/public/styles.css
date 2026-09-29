@@ -83,7 +83,7 @@ body { transition: background 1.6s linear; }
 
 /* ============ top bar ============ */
 .topbar {
-  position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+  position: fixed; top: 0; left: 0; right: 0; z-index: 11;   /* Wave-6.1: 10→11 — panels share z=10 and sit later in the DOM, so on the scrollable phone/short layout they painted OVER the fixed topbar and swallowed its ⋯ / links */
   display: flex; align-items: center; justify-content: space-between;
   padding: var(--pad);
   pointer-events: none;
@@ -279,7 +279,7 @@ body.ins-open .panel-pop, body.ins-open .panel-econ { opacity: 0.1; pointer-even
 
 /* layer toggles (top-centre): switch the two ambient 10x layers — the swarm-mind aura + the isolate ring */
 .layer-toggles {
-  position: fixed; z-index: 9; left: 50%; top: calc(var(--pad) + 26px); transform: translateX(-50%);
+  position: fixed; z-index: 11; left: 50%; top: calc(var(--pad) + 26px); transform: translateX(-50%);   /* Wave-6.1: 9→11 — same panel-cover rationale as .topbar; the layer chips must stay tappable above the scrolling panel column (still below drawers z=12) */
   display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; max-width: 62vw;
   font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase;
 }
