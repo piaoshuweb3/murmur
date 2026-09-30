@@ -33,7 +33,7 @@
 // i18n kernel — pure read-out localisation layer (never touches sim/economy/proof).
 // NOTE: `t` is used all over this file as a local (time/totals/lerp), so we import the
 // translator under the alias `T` to avoid any shadowing. ct() = chronicle display, gl() = glossary.
-import { t as T, ct, gl, currentLang, getLang, setLang, applyDom, SUPPORTED, ENDONYMS } from "./i18n.js?v=74";
+import { t as T, ct, gl, currentLang, getLang, setLang, applyDom, SUPPORTED, ENDONYMS } from "./i18n.js?v=75";
 
 const params = new URLSearchParams(location.search);
 const API =
@@ -2551,6 +2551,7 @@ function applyEconomy(econ) {
     const bal = econBalances.get(selectedId);
     if (bal != null) { const el = $("ins-bal"); if (el) el.textContent = bal.toFixed(4); }
   }
+  renderLandLeaders();   // W7-2: colonies + balances both settle in this payload — re-rank the right-column card
 }
 
 /** Recompute the swarm's wallet-balance range and each fly's normalised balance (0 = poorest … 1 =
@@ -6212,6 +6213,56 @@ function renderDist(states, size) {
   $("size").textContent = size != null ? (growing ? `${size}/${cap}` : size) : "–";
 }
 
+// ================= Wave-7 W7-2: Land Leaders (领地领袖) =================
+// A pure client-side read-out ranking the SAME groups the canvas's territory visuals render:
+// societies.colonies (the social-web colonies: the server-authoritative 4×4 zone grid, or the
+// Louvain partition of econSocial.bonds when the zone map is absent), falling back to the
+// dynasty house polities (`territories`, the exact source of the dominion map) when no bond
+// colony exists — so the leaderboard always mirrors whichever territory layer is visible.
+// Aggregated with the /population economy balances. Zero new fetches, zero new endpoints,
+// read-only sums — the ledger is never touched. Honest empty state: no colonies AND no
+// houses, or no balances ⇒ the whole card stays hidden, never a fabricated ranking. The
+// layer chips (showTerritory/showSocieties) are deliberately NOT consulted — turning a
+// rendering layer off must not blank the leaderboard, because the data path and the canvas
+// rendering are independent by construction (acceptance rule B4).
+let _llLang = null, _llSig = "";
+
+function renderLandLeaders() {
+  const card = $("land-leaders"), rowsEl = $("ll-rows");
+  if (!card || !rowsEl) return;
+  const lg = currentLang();
+  const colonies = (societies && Array.isArray(societies.colonies) && societies.colonies.length) ? societies.colonies : null;
+  const houses = (territories && Array.isArray(territories) && territories.length) ? territories : null;
+  const groups = colonies || houses;   // social-web colonies mirror the societies layer; else the dominion map's houses
+  if (!groups || !econBalances.size) {   // honest empty: nothing to rank ⇒ no card at all
+    if (!card.hidden) { card.hidden = true; _llLang = null; _llSig = ""; }
+    return;
+  }
+  // dual-metric rows: territory scale (member count, the ranking key) + family wealth (sum of
+  // member balances, display-only). Ties break on wealth, then name — fully deterministic.
+  const rows = groups.map((c) => {
+    let wealth = 0;
+    for (const id of c.ids) { const b = econBalances.get(id); if (b != null) wealth += b; }
+    return { name: c.name || ("#" + (c.founder ?? "?")), color: c.color || "var(--muted)", members: c.ids.length, wealth };
+  }).sort((a, b) => b.members - a.members || b.wealth - a.wealth || a.name.localeCompare(b.name)).slice(0, 5);
+  const sig = lg + "|" + rows.map((r) => r.members + ":" + r.wealth.toFixed(6) + ":" + r.name).join(";");
+  if (!card.hidden && _llLang === lg && _llSig === sig) return;   // byte-stable between polls — zero DOM churn
+  _llLang = lg; _llSig = sig;
+  card.hidden = false;
+  rowsEl.textContent = "";
+  rows.forEach((r, i) => {
+    const li = document.createElement("li");
+    const rank = document.createElement("span"); rank.className = "ll-rank"; rank.textContent = String(i + 1);
+    const sw = document.createElement("span"); sw.className = "ll-sw"; sw.style.background = r.color;
+    const nm = document.createElement("span"); nm.className = "ll-name"; nm.textContent = r.name;
+    const m = document.createElement("b"); m.className = "ll-m"; m.textContent = String(r.members);
+    const w = document.createElement("b"); w.className = "ll-w"; w.textContent = r.wealth.toFixed(4);
+    li.title = T("land.rowTitle", { name: r.name, members: r.members, wealth: r.wealth.toFixed(4) });
+    li.append(rank, sw, nm, m, w);
+    rowsEl.append(li);
+  });
+}
+
 // ================= inspector =================
 const DRIVES = [["arousal", "arousal", false], ["turn", "turn bias", true], ["cohesion", "cohesion", false], ["wingbeat", "wingbeat", false], ["rest", "rest", false]];
 
@@ -6733,6 +6784,7 @@ function rerenderAll() {
     updateNetNote();
     const tca = $("tca-copy"); if (tca) tca.title = T("econ.copyTip", { ca: tca.dataset.ca || "" });
     if (_lastDist) renderDist(_lastDist.states, _lastDist.size);   // repaint behaviour legend in the new language
+    renderLandLeaders();   // W7-2: the card's note + tooltips re-localise with the rest
     updateSinceLaunch();
     const dv = $("ins-drives"); if (dv) dv.innerHTML = "";   // force the cached drive labels to rebuild in the new language
     if (selectedId != null) fillInspectorFromSim(selectedId);

@@ -8,7 +8,7 @@
   <title>murmur — a population of neural agents settling on arc</title>
   <meta name="description" content="murmur is a living population of fruit-fly nervous systems adrift on arc. it reads whole-chain activity, reduces it to a temperature, and the swarm reacts. each fly is an autonomous agent whose 10,800-neuron connectome decides what to buy and from whom, settling with its peers in real USDC on Arc mainnet over x402 — every payment a verifiable on-chain transaction. no LLM, just neurons paying each other for real." />
 
-  <link rel="stylesheet" href="./styles.css?v=80" />
+  <link rel="stylesheet" href="./styles.css?v=81" />
   <link rel="stylesheet" href="./exchange.css?v=2" />
   <link rel="stylesheet" href="./social.css?v=2" />
   <link rel="stylesheet" href="./wave6.css?v=1" />
@@ -217,6 +217,13 @@
     <div class="panel-title"><span data-i18n="pop.population">population</span> <span class="pop-size" id="size">–</span></div>
     <div class="dist" id="dist"></div>
     <ul class="dist-legend" id="dist-legend"></ul>
+    <!-- ============ Wave-7 W7-2: Land Leaders (领地领袖) — pure client-side aggregation of the
+         SAME colonies the territory layer renders + /population balances; zero new fetches,
+         honest empty state (whole card hidden when there is nothing to rank) ============ -->
+    <div class="land-leaders" id="land-leaders" hidden>
+      <div class="ll-head"><span class="ll-title" data-i18n="land.title">land leaders</span><span class="ll-note" data-i18n="land.note">by territory · family USDC</span></div>
+      <ol class="ll-rows" id="ll-rows"></ol>
+    </div>
     <button class="brain-btn" id="brain-btn" type="button" data-i18n="pop.brainBtn" data-i18n-title="pop.brainTitle" title="Recompute the swarm's connectome-manifest hash in your browser and match it against the commitment on Arc — prove these are real deterministic connectomes, no LLM">prove the brain →</button>
     <button class="brain-btn lineage-btn" id="lineage-btn" type="button" data-i18n="pop.lineageBtn" data-i18n-title="pop.lineageTitle" title="The connectome breeding market: every brain's genome + its on-chain ancestry — explore the family tree and verify any individual trustlessly in your browser">breeding market →</button>
   </section>
@@ -638,7 +645,7 @@
     </div>
   </aside>
 
-  <script src="./app.js?v=85" type="module"></script>
+  <script src="./app.js?v=86" type="module"></script>
   <script src="./exchange.js?v=1" defer></script>
   <script src="./social.js?v=1" defer></script>
 </body>

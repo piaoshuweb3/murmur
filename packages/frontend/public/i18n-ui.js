@@ -118,6 +118,10 @@ const en = {
   "pop.brainTitle": "Recompute the swarm's connectome-manifest hash in your browser and match it against the commitment on Arc — prove these are real deterministic connectomes, no LLM",
   "pop.lineageBtn": "breeding market →",
   "pop.lineageTitle": "The connectome breeding market: every brain's genome + its on-chain ancestry — explore the family tree and verify any individual trustlessly in your browser",
+  // ---- Wave-7 W7-2: land leaders (领地领袖 · client-side aggregation, same source as the territory layer) ----
+  "land.title": "land leaders",
+  "land.note": "by territory · family USDC",
+  "land.rowTitle": "{name} — {members} members · {wealth} USDC",
   // ---- chronicle trigger + drawer frame ----
   "chron.word": "Chronicle",
   "chron.badge": "entries inscribed",
@@ -763,6 +767,10 @@ const zh = {
   "pop.brainTitle": "在你的浏览器里重算蜂群的连接组清单哈希，并与 Arc 上的承诺比对 —— 证明这些是真实的确定性连接组，而非 LLM",
   "pop.lineageBtn": "繁育市场 →",
   "pop.lineageTitle": "连接组繁育市场：每个大脑的基因组 + 其链上血统 —— 探索家谱，并在浏览器里无信任地验证任意个体",
+  // ---- Wave-7 W7-2: land leaders (领地领袖 · client-side aggregation, same source as the territory layer) ----
+  "land.title": "领地领袖",
+  "land.note": "按领地规模 · 家族 USDC",
+  "land.rowTitle": "{name} — 成员 {members} · 财富 {wealth} USDC",
   "chron.word": "编年史",
   "chron.badge": "条已铭刻",
   "map.legend": "村落 ▪ · 商路 ⌇",
@@ -1351,6 +1359,10 @@ const fr = {
   "pop.brainTitle": "Recalculez le hash du manifeste connectomique de l'essaim dans votre navigateur et confrontez-le à l'engagement sur Arc — prouvez que ce sont de vrais connectomes déterministes, pas de LLM",
   "pop.lineageBtn": "marché d'élevage →",
   "pop.lineageTitle": "Le marché d'élevage connectomique : le génome de chaque cerveau + son ascendance on-chain — explorez l'arbre généalogique et vérifiez tout individu sans confiance",
+  // ---- Wave-7 W7-2: land leaders (领地领袖 · client-side aggregation, same source as the territory layer) ----
+  "land.title": "seigneurs du territoire",
+  "land.note": "par territoire · USDC familial",
+  "land.rowTitle": "{name} — {members} membres · {wealth} USDC",
   "chron.word": "Chronique",
   "chron.badge": "entrées gravées",
   "map.legend": "hameau \u25aa \u00b7 route marchande \u2387",
@@ -1800,6 +1812,10 @@ const es = {
   "pop.brainTitle": "Recalcule en su navegador el hash del manifiesto conectómico del enjambre y compárelo con el compromiso en Arc — demuestre que son conectomas deterministas reales, sin LLM",
   "pop.lineageBtn": "mercado de cría →",
   "pop.lineageTitle": "El mercado de cría conectómico: el genoma de cada cerebro + su ascendencia en cadena — explore el árbol genealógico y verifique cualquier individuo sin confianza",
+  // ---- Wave-7 W7-2: land leaders (领地领袖 · client-side aggregation, same source as the territory layer) ----
+  "land.title": "señores del territorio",
+  "land.note": "por territorio · USDC familiar",
+  "land.rowTitle": "{name} — {members} miembros · {wealth} USDC",
   "chron.word": "Crónica",
   "chron.badge": "entradas grabadas",
   "map.legend": "aldea \u25aa \u00b7 ruta mercante \u2387",
@@ -2249,6 +2265,10 @@ const ja = {
   "pop.brainTitle": "ブラウザで群れの接続体マニフェストハッシュを再計算し、Arc上のコミットメントと照合 — これらが本物の決定論的接続体でLLMでないことを証明",
   "pop.lineageBtn": "ブリーディング市場 →",
   "pop.lineageTitle": "接続体ブリーディング市場: 各脳のゲノムとそのオンチェーンの祖先 — 系譜図を探索し、任意の個体をブラウザでトラストレスに検証",
+  // ---- Wave-7 W7-2: land leaders (领地领袖 · client-side aggregation, same source as the territory layer) ----
+  "land.title": "テリトリーの覇者",
+  "land.note": "テリトリー規模 · ファミリー USDC",
+  "land.rowTitle": "{name} — メンバー {members} · {wealth} USDC",
   "chron.word": "クロニクル",
   "chron.badge": "件 記録済み",
   "map.legend": "集落 ▪ · 商路 ⌇",
@@ -2698,6 +2718,10 @@ const ko = {
   "pop.brainTitle": "브라우저에서 군집의 커넥톰 매니페스트 해시를 재계산해 Arc上の 커밋과 비교 — 이들이 진짜 결정론적 커넥톰이며 LLM이 아님을 증명",
   "pop.lineageBtn": "교배 시장 →",
   "pop.lineageTitle": "커넥톰 교배 시장: 모든 뇌의 게놈 + 온체인 계보 — 가계도를 탐색하고 임의의 개체를 브라우저에서 신뢰불필요로 검증",
+  // ---- Wave-7 W7-2: land leaders (领地领袖 · client-side aggregation, same source as the territory layer) ----
+  "land.title": "영지의 리더",
+  "land.note": "영지 규모 · 패밀리 USDC",
+  "land.rowTitle": "{name} — 멤버 {members} · {wealth} USDC",
   "chron.word": "연대기",
   "chron.badge": "기록됨",
   "map.legend": "촌락 ▪ · 교역로 ⌇",
@@ -3147,6 +3171,10 @@ const ar = {
   "pop.brainTitle": "أعد حساب بصمة قائمة الوصلات العصبية للسرب في متصفحك وطابقها مع الالتزام على Arc — أثبت أنها وصلات حقيقية حتمية، لا نموذج لغوي",
   "pop.lineageBtn": "← سوق التهجين",
   "pop.lineageTitle": "سوق تهجين الوصلات: جينوم كل دماغ وأصله على السلسلة — استكشف شجرة العائلة وتحقّق من أي فرد بلا ثقة في متصفحك",
+  // ---- Wave-7 W7-2: land leaders (领地领袖 · client-side aggregation, same source as the territory layer) ----
+  "land.title": "قادة الأراضي",
+  "land.note": "حسب الأراضي · USDC العائلة",
+  "land.rowTitle": "{name} — {members} أعضاء · {wealth} USDC",
   "chron.word": "الحوليات",
   "chron.badge": "سُجِلت",
   "map.legend": "قرية ▪ · طريق تجارة ⌇",
