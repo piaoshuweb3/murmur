@@ -6,6 +6,7 @@ import { OPENAPI_SPEC } from "./openapi.js";
 import { handleCommunity } from "./community.js";
 import { handleHistoryDirect } from "./history.js";
 import { edgeCache } from "./edgecache.js";
+import { handleOnrampSession } from "./onramp.js";
 
 // 冻结治理（P0）：scheduled→DO /tick 自调用的壁钟上限（远小于 Workers cron 的 900s 墙）。
 const CRON_SELF_TIMEOUT_MS = 600_000;
@@ -123,6 +124,7 @@ export default {
             "GET  /snapshot?flyId=N   (full neural state of one fly + its agent wallet)",
             "GET  /flies/:id",
             "POST /stimulus     (poke the swarm)",
+            "POST /onramp/session (the /fund page: mint a ~30-min Circle hosted-onramp session for a destination wallet —\n                                 503 not_configured while CIRCLE_ONRAMP_API_KEY is unset; a TEST_… key mints SANDBOX sessions)",
             "POST /breed        (apply a genetic operator to committed parents → record the offspring; ADMIN_TOKEN gated)",
             "POST /tick         (debug: run one cron now)",
             "POST /reset        (debug: fresh founding population + funded wallets)",
@@ -163,6 +165,17 @@ export default {
         status: 301,
         headers: { location: "/transparency.html#telemetry", "cache-control": "public, max-age=86400" },
       });
+    }
+
+    // W8-1a — the /fund page's session mint. Worker-direct (like /community): a stateless upstream call to
+    // Circle's stablecoinKits API, orthogonal to the tick/swarm, so it must NOT contend for the swarm DO's
+    // single-threaded input queue. see onramp.ts for the probed upstream contract + failure mapping.
+    if (path === "/onramp/session" && request.method === "POST") {
+      const cfg = loadConfig(env);
+      const onrampResp = await handleOnrampSession(request, cfg.onramp);
+      const onrampHeaders = new Headers(onrampResp.headers);
+      for (const [k, v] of Object.entries(corsHeaders(request, env))) onrampHeaders.set(k, v);
+      return new Response(onrampResp.body, { status: onrampResp.status, headers: onrampHeaders });
     }
 
     // Forward every other request to the DO (with the /v1 prefix already stripped) — through

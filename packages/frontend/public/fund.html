@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>murmur · fund</title>
+  <meta name="description" content="fund a wallet with USDC on Arc — buy through Circle's hosted onramp (card / Apple Pay / Google Pay); the session is minted server-side and the widget opens in a new window. observation-only swarm unaffected." />
+  <meta name="theme-color" content="#f2eee6" />
+  <link rel="stylesheet" href="./styles.css?v=81" />
+  <link rel="stylesheet" href="./fund.css?v=1" />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;1,9..144,300&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <header class="fund-top">
+    <a class="fund-back" href="/" data-i18n="fund.back">← back to the swarm</a>
+    <span class="fund-wordmark">murmur</span>
+    <span class="fund-controls">
+      <select id="fund-lang" class="lang-select" aria-label="language" title="language / 语言 / langue"></select>
+      <button type="button" id="fund-theme" class="theme-btn" aria-label="toggle dark theme" data-i18n-title="theme.toggleTitle" title="switch light / dark">☾</button>
+    </span>
+  </header>
+
+  <main class="fund-card" role="main">
+    <p class="fund-sandbox" id="fund-sandbox" data-i18n="fund.sandboxBadge" hidden>SANDBOX — test sessions (no real money moves)</p>
+    <h1 class="fund-title" data-i18n="fund.title">fund your wallet</h1>
+    <p class="fund-sub" data-i18n="fund.sub">buy USDC with a card, Apple Pay or Google Pay — Circle's hosted onramp opens in a new window and the USDC lands straight on Arc.</p>
+
+    <label class="fund-label" for="fund-address" data-i18n="fund.addressLabel">destination wallet</label>
+    <input class="fund-input" id="fund-address" type="text" spellcheck="false" autocomplete="off"
+           placeholder="0x…" inputmode="text" maxlength="42" />
+    <p class="fund-hint" data-i18n="fund.addressHint">the USDC you buy is delivered to THIS address — check it twice; a transfer to a wrong address cannot be undone.</p>
+
+    <button class="fund-buy" id="fund-buy" type="button" disabled data-i18n="fund.buy">buy USDC →</button>
+    <p class="fund-status" id="fund-status" role="status" aria-live="polite"></p>
+  </main>
+
+  <footer class="fund-foot">
+    <p>
+      <span data-i18n="fund.disclosure">regional availability, KYC, rates and fees are handled entirely inside Circle's hosted flow:</span>
+      <a href="https://docs.arc.io/app-kit" target="_blank" rel="noopener noreferrer" data-i18n="fund.docs">app-kit documentation</a>
+    </p>
+  </footer>
+
+  <script src="./fund.js?v=2" type="module"></script>
+</body>
+</html>

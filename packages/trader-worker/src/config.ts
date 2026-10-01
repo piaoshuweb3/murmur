@@ -84,6 +84,10 @@ export interface Env {
   CIRCLE_FACILITATOR_URL?: string;      // Circle API base URL (default https://api.circle.com; sandbox https://api-sandbox.circle.com). One host routes testnet+mainnet by the CAIP-2 network in the body.
   CIRCLE_MAX_TIMEOUT_SECONDS?: string;  // seconds Circle may wait for terminal settlement before returning "pending" (default 12; Arc settles with instant finality).
   CIRCLE_API_KEY?: string;              // SECRET (optional): Circle API key → Bearer auth in production. Absent ⇒ keyless trial, authenticating each settle with an EIP-712 seller proof signed by the payTo key we already hold. Set with `wrangler secret put CIRCLE_API_KEY`.
+  CIRCLE_ONRAMP_API_KEY?: string;       // SECRET (optional): Circle API key for the /fund onramp page ONLY (POST /onramp/session →
+                                        //   hosted widget). Deliberately NOT CIRCLE_API_KEY: arming the onramp must never flip the
+                                        //   settlement facilitator's auth mode (the x402 path goes Bearer the moment CIRCLE_API_KEY exists).
+                                        //   A TEST_… key mints SANDBOX sessions (no real money); a LIVE_… key mints real ones.
 
   // --- Trustless receipt availability: pin each neural receipt BODY to IPFS (see src/ipfs.ts) ---
   //     The receipt HASH is already committed on-chain (EIP-3009 nonce + registry); pinning the BODY lets
@@ -419,6 +423,14 @@ export interface RuntimeConfig {
       jwt: string | null;
       gateway: string;
     };
+  };
+
+  // W8-1 /fund onramp — Circle hosted-onramp session minting (see src/onramp.ts). apiKey null ⇒ the
+  // POST /onramp/session endpoint answers 503 not_configured (honest empty state) and nothing else changes.
+  // Deliberately a SEPARATE secret from economy.circle.apiKey: arming the onramp must never flip the
+  // settlement facilitator's auth mode (circle.ts goes Bearer the moment CIRCLE_API_KEY exists).
+  onramp: {
+    apiKey: string | null;
   };
 
   // Paid data product (x402 "Arc Pulse" signal)
@@ -769,6 +781,10 @@ export function loadConfig(env: Env): RuntimeConfig {
         jwt: (env.PINATA_JWT ?? "").trim() || null,
         gateway: (env.IPFS_GATEWAY ?? "").trim() || "https://ipfs.io",
       },
+    },
+
+    onramp: {
+      apiKey: (env.CIRCLE_ONRAMP_API_KEY ?? "").trim() || null,
     },
 
     signal: {

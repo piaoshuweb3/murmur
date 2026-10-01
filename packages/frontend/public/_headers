@@ -38,5 +38,13 @@
 /canary.html
   Cache-Control: no-store, max-age=0
 
+# The /fund onramp page reads the session-mint API live and carries the theme/lang from local
+# storage — same live-entry policy (W8-1b).
+/fund
+  Cache-Control: no-store, max-age=0
+
+/fund.html
+  Cache-Control: no-store, max-age=0
+
 /transparency
   Cache-Control: no-store, max-age=0

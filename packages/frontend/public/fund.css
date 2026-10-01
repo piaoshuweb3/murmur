@@ -1,0 +1,130 @@
+/* ==========================================================================
+   murmur · fund — the standalone onramp page (W8-1b).
+   Pure layout on top of the shared theme tokens in styles.css (?v=81):
+   warm paper + ink, hairline borders, no glass, no neon. Dark theme comes
+   free from the [data-theme="dark"] overrides already shipped there.
+   ========================================================================== */
+
+.fund-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px clamp(16px, 4vw, 40px);
+  border-bottom: 1px solid var(--hair);
+}
+
+.fund-back {
+  font: 300 13px/1 "IBM Plex Mono", monospace;
+  color: var(--muted);
+  text-decoration: none;
+  letter-spacing: 0.02em;
+}
+.fund-back:hover { color: var(--ink); }
+
+.fund-wordmark {
+  font: 300 clamp(20px, 3vw, 26px)/1 "Fraunces", serif;
+  font-style: italic;
+  color: var(--ink);
+}
+
+.fund-controls { display: flex; align-items: center; gap: 8px; }
+
+/* ---------- card ---------- */
+
+.fund-card {
+  max-width: 560px;
+  margin: clamp(24px, 8vh, 72px) auto;
+  padding: clamp(20px, 4vw, 36px);
+  background: var(--panel);
+  border: 1px solid var(--hair);
+  border-radius: 10px;
+}
+
+.fund-sandbox {
+  margin: 0 0 14px;
+  padding: 8px 12px;
+  font: 500 12px/1.5 "IBM Plex Mono", monospace;
+  color: var(--ink);
+  background: rgba(201, 154, 63, 0.16);   /* the explore-amber, washed */
+  border: 1px solid rgba(201, 154, 63, 0.45);
+  border-radius: 6px;
+}
+
+.fund-title {
+  margin: 0 0 8px;
+  font: 400 clamp(24px, 4vw, 32px)/1.15 "Fraunces", serif;
+  color: var(--ink);
+}
+
+.fund-sub {
+  margin: 0 0 22px;
+  font: 300 14px/1.65 "IBM Plex Mono", monospace;
+  color: var(--muted);
+}
+
+.fund-label {
+  display: block;
+  margin: 0 0 6px;
+  font: 500 12px/1 "IBM Plex Mono", monospace;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.fund-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  font: 400 15px/1.4 "IBM Plex Mono", monospace;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--hair);
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.fund-input:focus { border-color: rgba(var(--accent-rgb), 0.8); }
+.fund-input::placeholder { color: var(--muted); opacity: 0.6; }
+
+.fund-hint {
+  margin: 8px 0 20px;
+  font: 300 12px/1.6 "IBM Plex Mono", monospace;
+  color: var(--muted);
+}
+
+.fund-buy {
+  display: block;
+  width: 100%;
+  padding: 13px 16px;
+  font: 500 15px/1 "IBM Plex Mono", monospace;
+  color: var(--paper);
+  background: var(--ink);
+  border: 1px solid var(--ink);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.05s ease;
+}
+.fund-buy:hover:not(:disabled) { opacity: 0.9; }
+.fund-buy:active:not(:disabled) { transform: translateY(1px); }
+.fund-buy:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.fund-status {
+  min-height: 1.2em;
+  margin: 14px 0 0;
+  font: 400 13px/1.6 "IBM Plex Mono", monospace;
+  color: var(--agitate, #c05e3c);         /* honest failures read as warnings */
+  white-space: pre-line;
+}
+.fund-status.is-ok { color: var(--ink); }
+
+/* ---------- footer ---------- */
+
+.fund-foot {
+  max-width: 560px;
+  margin: 0 auto clamp(24px, 6vh, 48px);
+  padding: 0 clamp(20px, 4vw, 36px);
+  font: 300 12px/1.7 "IBM Plex Mono", monospace;
+  color: var(--muted);
+}
+.fund-foot a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
