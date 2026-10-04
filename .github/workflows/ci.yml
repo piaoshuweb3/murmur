@@ -1,0 +1,95 @@
+name: CI
+
+# The standing quality gate for murmur — adapted (shape only, code self-written) from the
+# upstream EvolutionDeep/murmur CI idea (W9 scan, item A2): every gate here is KEYLESS and
+# CHAIN-FREE. No secret is read, no wallet is needed, nothing is deployed, no network call
+# leaves the runner except the npm registry. CI proves the REPO is coherent; it never
+# touches production (deploy is a separately human-approved act — see HANDOVER.md §0).
+#
+# Gates, in order:
+#   1. typecheck      — tsc --noEmit across fly-brain / trader-worker / arc-circle-x402 (strict)
+#   2. test           — the full node:test suite (neural sim, economy, settlement, onramp, …)
+#   3. smoke          — the fly-brain neural smoke test (assemble → fire → serialize → revive)
+#   4. replay         — rebuild every connectome from the committed seeds in wrangler.toml and
+#                       assert the manifest reproduces bit-for-bit (a standing trustless check
+#                       that the published brain is exactly what its seeds generate — no LLM)
+#   5. manifest       — gen-manifest.mjs must be IDEMPOTENT: re-running it over the committed
+#                       public/ tree must reproduce deploy.json exactly (git diff --exit-code).
+#                       Any uncommitted asset drift fails the build.
+#   6. syntax         — node --check over every served public/*.js plus the root tooling *.mjs
+#                       (the frontend is raw ESM served without a bundler — a syntax error
+#                       would otherwise only surface as a blank page in production).
+#
+# Contracts (forge) are deliberately NOT a gate here yet: the local toolchain cannot rehearse
+# it end-to-end today, and a gate that was never run green first is theatre. The Solidity
+# suites are exercised at deploy time (scripts/compile-*.mjs + Sourcify verification); wiring
+# forge into CI is tracked as a follow-up once rehearsed.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: typecheck · test · smoke · replay · manifest · syntax
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies (lockfile-exact)
+        run: npm ci
+
+      - name: Typecheck (tsc --noEmit, strict, all packages)
+        run: npm run typecheck
+
+      - name: Unit tests (neural sim · economy · settlement · onramp · lineage)
+        run: npm test
+
+      - name: Neural smoke test (fly-brain)
+        run: npm run smoke
+
+      - name: Brain-manifest replay (prove the brain, offline)
+        run: npm run replay
+
+      - name: Deploy-manifest idempotence (gen-manifest ↔ committed deploy.json)
+        run: |
+          node scripts/gen-manifest.mjs
+          if ! git diff --exit-code -- packages/frontend/public/deploy.json; then
+            echo "::error::deploy.json drifted — the committed manifest does not match the committed public/ tree. Run 'node scripts/gen-manifest.mjs' and commit the result."
+            exit 1
+          fi
+          echo "deploy.json reproduces from the committed tree (idempotent)."
+
+      - name: Syntax gate (public/*.js as ESM + root tooling *.mjs)
+        run: |
+          set -e
+          fail=0
+          for f in packages/frontend/public/*.js; do
+            node --experimental-detect-module --check "$f" || fail=1
+          done
+          for f in scripts/*.mjs; do
+            [ -e "$f" ] || continue
+            node --check "$f" || fail=1
+          done
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::syntax gate failed — see the step log above."
+            exit 1
+          fi
+          echo "syntax gate passed for all served modules and root tooling."
